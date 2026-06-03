@@ -183,6 +183,8 @@ Every time you change a model (`app/models/`), generate a new migration:
 docker compose run --rm app alembic revision --autogenerate -m "describe your change"
 
 # 2. The file appears in alembic/versions/ on your host. Review it.
+## Upgrade the head
+docker compose exec app alembic upgrade head
 
 # 3. Restart the app — migrations run automatically on startup
 docker compose restart app
