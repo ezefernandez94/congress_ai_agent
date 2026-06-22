@@ -1,5 +1,5 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -32,6 +32,20 @@ class Settings(BaseSettings):
     timezone: str = "America/Los_Angeles"
     digest_hour: int = 7
     digest_minute: int = 30
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def fix_database_url_scheme(cls, v: str) -> str:
+        """
+        Railway provides DATABASE_URL as postgresql:// but SQLAlchemy
+        requires postgresql+asyncpg:// for the asyncpg driver.
+        Rewrite any bare postgresql:// or postgres:// scheme automatically.
+        """
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     @property
     def is_production(self) -> bool:
