@@ -1,6 +1,9 @@
 from sqlalchemy import select
 from telegram import Update
 from telegram.ext import ContextTypes
+import base64
+from telegram import Update
+from telegram.ext import ContextTypes
 
 from app.agent.orchestrator import ConferenceAgent
 from app.core.config import settings
@@ -8,6 +11,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.logging import logger
 from app.models.conversation import ConversationMessage
 from app.services.transcription import transcription_service
+
 
 COMPLEX_KEYWORDS = (
     "brief me", "summary", "digest", "enrich", "draft", "prepare",
@@ -90,4 +94,36 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     await save_message_to_history(str(user_id), "assistant", response)
 
     await update.message.reply_text(f"_Heard: {transcript}_", parse_mode="Markdown")
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if user_id != settings.telegram_allowed_user_id:
+        return
+
+    await update.message.reply_text("📸 Reading badge...")
+
+    # Get highest resolution version of the photo
+    photo = update.message.photo[-1]
+    photo_file = await context.bot.get_file(photo.file_id)
+    image_bytes = await photo_file.download_as_bytearray()
+    image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    # Any caption the user added ("met at the AI panel", "potential investor")
+    caption = update.message.caption or ""
+
+    history = await get_conversation_history(str(user_id), limit=20)
+
+    async with AsyncSessionLocal() as db:
+        agent = ConferenceAgent(db)
+        response = await agent.process_message(
+            user_message=f"[Badge photo]{f': {caption}' if caption else ''}",
+            message_history=history,
+            image_b64=image_b64,
+            image_media_type="image/jpeg",
+        )
+
+    await save_message_to_history(str(user_id), "user", f"[Badge photo] {caption}".strip())
+    await save_message_to_history(str(user_id), "assistant", response)
+
     await update.message.reply_text(response, parse_mode="Markdown")

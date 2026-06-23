@@ -367,9 +367,36 @@ class ConferenceAgent:
         self,
         user_message: str,
         message_history: list[dict],
+        image_b64: str | None = None,
+        image_media_type: str = "image/jpeg",
     ) -> str:
         system_prompt = await build_system_prompt(self.db)
-        messages = message_history + [{"role": "user", "content": user_message}]
+        # Build the user message content — text only, or text + image
+        if image_b64:
+            user_content = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": image_media_type,
+                        "data": image_b64,
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        f"{user_message}\n\n"
+                        "Extract from this conference badge: full name, company, role/title. "
+                        "Then call create_contact with what you find. "
+                        "If any field is unclear or not visible, omit it rather than guessing. "
+                        "After saving, confirm what was captured and ask if anything should be added."
+                    ),
+                },
+            ]
+        else:
+            user_content = user_message
+
+        messages = message_history + [{"role": "user", "content": user_content}]
 
         while True:
             response = await self.client.messages.create(

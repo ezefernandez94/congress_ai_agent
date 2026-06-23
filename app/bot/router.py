@@ -1,6 +1,8 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import MessageHandler, filters
 
+from app.bot.handlers import handle_photo_message
 from app.bot.handlers import handle_text_message, handle_voice_message
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -81,3 +83,4 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo_message))
