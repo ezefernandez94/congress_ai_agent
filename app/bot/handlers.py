@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from app.agent.orchestrator import ConferenceAgent
-from app.core.config import settings
+from app.bot.auth import authorize
 from app.core.database import AsyncSessionLocal, session_scope
 from app.core.logging import logger
 from app.models.conversation import ConversationMessage
@@ -42,9 +42,9 @@ async def save_message_to_history(user_id: str, role: str, content: str) -> None
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    if user_id != settings.telegram_allowed_user_id:
+    if await authorize(update) is None:
         return
+    user_id = update.effective_user.id
 
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
 
@@ -65,9 +65,9 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    if user_id != settings.telegram_allowed_user_id:
+    if await authorize(update) is None:
         return
+    user_id = update.effective_user.id
 
     await update.message.reply_text("🎙 Transcribing...")
 
@@ -95,9 +95,9 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(response, parse_mode="Markdown")
 
 async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-    if user_id != settings.telegram_allowed_user_id:
+    if await authorize(update) is None:
         return
+    user_id = update.effective_user.id
 
     await update.message.reply_text("📸 Reading badge...")
 

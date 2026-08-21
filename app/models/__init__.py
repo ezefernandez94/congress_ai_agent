@@ -24,6 +24,7 @@ from app.models.note import Note
 from app.models.opportunity import Opportunity
 from app.models.person import Person
 from app.models.task import Task
+from app.models.user import BotUser
 
 __all__ = [
     "Base",
@@ -51,4 +52,5 @@ __all__ = [
     "Opportunity",
     "Conference",
     "ConversationMessage",
+    "BotUser",
 ]

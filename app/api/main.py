@@ -8,6 +8,7 @@ from telegram.ext import Application
 from app.api.middleware import RequestLoggingMiddleware
 from app.api.routes.health import router as health_router
 from app.api.routes.webhook import router as webhook_router, set_bot_application
+from app.bot.auth import seed_users_from_env
 from app.bot.router import register_handlers
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
@@ -22,6 +23,8 @@ async def lifespan(app: FastAPI):
     global _bot_app, _polling_task
     setup_logging()
     logger.info("starting_up", env=settings.app_env)
+
+    await seed_users_from_env()
 
     _bot_app = Application.builder().token(settings.telegram_bot_token).build()
     register_handlers(_bot_app)

@@ -9,7 +9,8 @@ class Settings(BaseSettings):
 
     # Telegram
     telegram_bot_token: str = ""
-    telegram_allowed_user_id: int = 0
+    telegram_allowed_user_id: int = 0          # legacy single-user var (still honoured)
+    telegram_allowed_user_ids: str = ""        # comma-separated list, e.g. "123,456"
 
     # Anthropic
     anthropic_api_key: str = ""
@@ -46,6 +47,25 @@ class Settings(BaseSettings):
         if v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
+
+    @property
+    def allowed_user_ids(self) -> set[int]:
+        """
+        Every Telegram user ID permitted to talk to the bot.
+        Merges the legacy TELEGRAM_ALLOWED_USER_ID with the comma-separated
+        TELEGRAM_ALLOWED_USER_IDS so existing deployments keep working.
+        """
+        ids: set[int] = set()
+        if self.telegram_allowed_user_id:
+            ids.add(self.telegram_allowed_user_id)
+        for chunk in self.telegram_allowed_user_ids.split(","):
+            chunk = chunk.strip()
+            if chunk:
+                ids.add(int(chunk))
+        return ids
+
+    def is_allowed_user(self, user_id: int) -> bool:
+        return user_id in self.allowed_user_ids
 
     @property
     def is_production(self) -> bool:

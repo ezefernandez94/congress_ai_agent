@@ -25,7 +25,18 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in your keys (see [Environment Variables](#environment-variables) below).
-At minimum you need `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID`, and `ANTHROPIC_API_KEY`.
+At minimum you need `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_IDS`, and `ANTHROPIC_API_KEY`.
+
+### Who can use the bot
+
+Access lives in the `bot_users` table, not in the environment. IDs in
+`TELEGRAM_ALLOWED_USER_IDS` are seeded as *owners* on every startup; everyone else is
+denied unless an owner adds them. Owners add people at runtime with `/adduser <telegram id>`
+(the new person gets their ID by sending `/whoami`) and revoke with `/removeuser <telegram id>`.
+Removing an ID from the env does **not** revoke it — use `/removeuser`.
+
+Each user controls their own morning digest with `/digest_on` and `/digest_off`; the 7:30 job
+sends only to active users with `receives_digest = true`.
 
 ### 2. Build the Docker image
 
@@ -82,7 +93,8 @@ Your Telegram bot is now live. Send it a message to confirm.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Token from @BotFather |
-| `TELEGRAM_ALLOWED_USER_ID` | Yes | Your Telegram user ID (only this user can use the bot) |
+| `TELEGRAM_ALLOWED_USER_ID` | Yes* | Your Telegram user ID (legacy single-user var, still honoured) |
+| `TELEGRAM_ALLOWED_USER_IDS` | Yes* | Comma-separated owner IDs, e.g. `123456,789012`. Seeded into `bot_users` on startup |
 | `ANTHROPIC_API_KEY` | Yes | Claude API key for the agent and enrichment |
 | `OPENAI_API_KEY` | Yes | OpenAI key for Whisper voice transcription |
 | `PROXYCURL_API_KEY` | No | LinkedIn enrichment (~$0.10/profile). Only needed when you call `enrich_contact` |
