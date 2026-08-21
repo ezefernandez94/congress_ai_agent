@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from app.agent.orchestrator import ConferenceAgent
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, session_scope
 from app.core.logging import logger
 from app.models.conversation import ConversationMessage
 from app.services.transcription import transcription_service
@@ -37,10 +37,8 @@ async def get_conversation_history(user_id: str, limit: int = 20) -> list[dict]:
 
 
 async def save_message_to_history(user_id: str, role: str, content: str) -> None:
-    async with AsyncSessionLocal() as db:
-        msg = ConversationMessage(user_id=user_id, role=role, content=content)
-        db.add(msg)
-        await db.commit()
+    async with session_scope() as db:
+        db.add(ConversationMessage(user_id=user_id, role=role, content=content))
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -56,7 +54,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     history = await get_conversation_history(str(user_id), limit=20)
 
-    async with AsyncSessionLocal() as db:
+    async with session_scope() as db:
         agent = ConferenceAgent(db)
         response = await agent.process_message(user_message=text, message_history=history)
 
@@ -86,7 +84,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
     user_message = f"[Voice note]: {transcript}"
     history = await get_conversation_history(str(user_id), limit=20)
 
-    async with AsyncSessionLocal() as db:
+    async with session_scope() as db:
         agent = ConferenceAgent(db)
         response = await agent.process_message(user_message=user_message, message_history=history)
 
@@ -114,7 +112,7 @@ async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     history = await get_conversation_history(str(user_id), limit=20)
 
-    async with AsyncSessionLocal() as db:
+    async with session_scope() as db:
         agent = ConferenceAgent(db)
         response = await agent.process_message(
             user_message=f"[Badge photo]{f': {caption}' if caption else ''}",

@@ -15,12 +15,24 @@ class ToolExecutor:
         self.db = db
 
     async def execute(self, tool_name: str, tool_input: dict) -> dict:
+        handler = getattr(self, f"_tool_{tool_name}", None)
+        if handler is None:
+            return {"success": False, "error": f"Unknown tool: {tool_name}"}
+
         try:
-            handler = getattr(self, f"_tool_{tool_name}", None)
-            if handler is None:
-                return {"success": False, "error": f"Unknown tool: {tool_name}"}
-            return await handler(tool_input)
+            result = await handler(tool_input)
+            # Each tool call is its own unit of work. The repositories only
+            # flush, so without this commit the session discards every write
+            # when it closes — after the agent has already reported success.
+            # Committing per tool also keeps the transaction from staying open
+            # across the model round-trips of the agent loop.
+            if result.get("success"):
+                await self.db.commit()
+            else:
+                await self.db.rollback()
+            return result
         except Exception as e:
+            await self.db.rollback()
             logger.error("tool_execution_error", tool=tool_name, error=str(e))
             return {"success": False, "error": str(e)}
 

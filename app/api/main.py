@@ -28,6 +28,17 @@ async def lifespan(app: FastAPI):
     await _bot_app.initialize()
     set_bot_application(_bot_app)
 
+    # Log which bot this token actually drives. Development mode deletes the
+    # token's webhook, so starting up against a production token would take the
+    # production bot offline — this makes the mistake visible immediately.
+    me = await _bot_app.bot.get_me()
+    logger.info(
+        "bot_identity",
+        username=me.username,
+        bot_id=me.id,
+        mode="webhook" if settings.is_production else "polling",
+    )
+
     if settings.is_production:
         # Webhook mode — Telegram pushes updates to our public URL
         webhook_url = f"{settings.base_url}/webhook/{settings.webhook_secret}"
