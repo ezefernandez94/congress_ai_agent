@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     webhook_secret: str = "changeme"
     base_url: str = "http://localhost:8000"
 
+    # Injected by Railway once the service has a generated public domain.
+    # Preferred over BASE_URL in production so the hostname is never hand-typed.
+    railway_public_domain: str = ""
+
     # Optional
     apollo_api_key: str = ""
     timezone: str = "America/Los_Angeles"
@@ -47,6 +51,29 @@ class Settings(BaseSettings):
         if v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
+
+    @field_validator("railway_public_domain", "base_url", mode="before")
+    @classmethod
+    def strip_url_noise(cls, v: str) -> str:
+        """Tolerate a pasted scheme or trailing slash in either value."""
+        return (v or "").strip().rstrip("/")
+
+    @property
+    def public_base_url(self) -> str:
+        """Base URL Telegram should call back on.
+
+        RAILWAY_PUBLIC_DOMAIN is a bare hostname (no scheme) and only exists
+        once a public domain has been generated for the service, so BASE_URL
+        stays the fallback for local development.
+        """
+        if self.railway_public_domain:
+            domain = self.railway_public_domain.removeprefix("https://").removeprefix("http://")
+            return f"https://{domain}"
+        return self.base_url
+
+    @property
+    def webhook_url(self) -> str:
+        return f"{self.public_base_url}/webhook/{self.webhook_secret}"
 
     @property
     def allowed_user_ids(self) -> set[int]:

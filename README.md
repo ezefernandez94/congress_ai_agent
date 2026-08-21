@@ -94,6 +94,7 @@ Your Telegram bot is now live. Send it a message to confirm.
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Token from @BotFather |
 | `TELEGRAM_ALLOWED_USER_ID` | Yes* | Your Telegram user ID (legacy single-user var, still honoured) |
+| `RAILWAY_PUBLIC_DOMAIN` | Auto | Injected by Railway once a public domain is generated. Takes precedence over `BASE_URL` |
 | `TELEGRAM_ALLOWED_USER_IDS` | Yes* | Comma-separated owner IDs, e.g. `123456,789012`. Seeded into `bot_users` on startup |
 | `ANTHROPIC_API_KEY` | Yes | Claude API key for the agent and enrichment |
 | `OPENAI_API_KEY` | Yes | OpenAI key for Whisper voice transcription |

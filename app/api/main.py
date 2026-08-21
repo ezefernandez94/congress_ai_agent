@@ -44,13 +44,7 @@ async def lifespan(app: FastAPI):
 
     if settings.is_production:
         # Webhook mode — Telegram pushes updates to our public URL
-        webhook_url = f"{settings.base_url}/webhook/{settings.webhook_secret}"
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
-                json={"url": webhook_url, "allowed_updates": ["message", "callback_query"]},
-            )
-            logger.info("webhook_registered", url=webhook_url, response=resp.json())
+        await _register_webhook()
     else:
         # Polling mode — bot actively fetches updates from Telegram
         # Must delete any existing webhook first, otherwise polling is ignored
@@ -81,8 +75,60 @@ async def lifespan(app: FastAPI):
             pass
 
     if _bot_app:
-        await _bot_app.stop()
+        if _bot_app.running:
+            await _bot_app.stop()
         await _bot_app.shutdown()
+
+
+def _redact(url: str) -> str:
+    """Webhook URLs embed the secret and API URLs embed the bot token."""
+    return url.replace(settings.webhook_secret, "***").replace(settings.telegram_bot_token, "***")
+
+
+async def _register_webhook() -> None:
+    """Point Telegram at this deployment, refusing to start if it doesn't take.
+
+    A rejected setWebhook used to be logged as a success, leaving a container
+    that passed health checks while the bot silently received nothing. Crashing
+    here surfaces the misconfiguration in the deploy instead.
+    """
+    webhook_url = settings.webhook_url
+    api = f"https://api.telegram.org/bot{settings.telegram_bot_token}"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{api}/setWebhook",
+            json={"url": webhook_url, "allowed_updates": ["message", "callback_query"]},
+        )
+        body = resp.json()
+
+        if resp.status_code != 200 or not body.get("ok"):
+            logger.error(
+                "webhook_registration_failed",
+                url=_redact(webhook_url),
+                status=resp.status_code,
+                description=body.get("description"),
+            )
+            raise RuntimeError(
+                f"Telegram rejected setWebhook for {_redact(webhook_url)}: "
+                f"{body.get('description', resp.text)}"
+            )
+
+        logger.info("webhook_registered", url=_redact(webhook_url))
+
+        # setWebhook only validates the URL's syntax — it never checks that the
+        # host is reachable. Surface whatever Telegram saw on its last delivery
+        # so an unreachable domain shows up here and not as a silent dead bot.
+        info = (await client.get(f"{api}/getWebhookInfo")).json().get("result", {})
+        if info.get("last_error_message"):
+            logger.warning(
+                "webhook_last_delivery_error",
+                message=info["last_error_message"],
+                pending=info.get("pending_update_count", 0),
+                hint="Stale if it predates this deploy; persistent means Telegram cannot reach BASE_URL.",
+            )
+        else:
+            logger.info("webhook_healthy", pending=info.get("pending_update_count", 0))
 
 
 async def _run_polling(bot_app: Application) -> None:
