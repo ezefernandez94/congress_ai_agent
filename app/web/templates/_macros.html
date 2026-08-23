@@ -1,0 +1,133 @@
+{#- Form and filter widgets. Imported `with context` so every macro can read
+    `values` (current field values) and `filters` (active query params). -#}
+
+{% macro text_field(name, label_text, type='text', full=false, hint='', required=false) %}
+<div class="field {{ 'full' if full }}">
+  <label for="{{ name }}">{{ label_text }}{% if required %} *{% endif %}</label>
+  <input type="{{ type }}" id="{{ name }}" name="{{ name }}"
+         value="{{ values.get(name) | date_input if type in ('date', 'datetime-local') else (values.get(name) if values.get(name) is not none else '') }}"
+         {{ 'required' if required }}
+         {% if type == 'number' %}step="any"{% endif %}>
+  {% if hint %}<div class="hint">{{ hint }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro textarea_field(name, label_text, rows=4, hint='') %}
+<div class="field full">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}">{{ values.get(name) if values.get(name) is not none else '' }}</textarea>
+  {% if hint %}<div class="hint">{{ hint }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro array_field(name, label_text, rows=3) %}
+<div class="field full">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}">{{ values.get(name) | join_lines }}</textarea>
+  <div class="hint">One per line.</div>
+</div>
+{% endmacro %}
+
+{#- `required` omits the blank option: the column is NOT NULL, so "unset" is
+    not a state the record can be in. -#}
+{% macro enum_field(name, label_text, enum, required=false, blank='—') %}
+<div class="field">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <select id="{{ name }}" name="{{ name }}">
+    {% if not required %}<option value="">{{ blank }}</option>{% endif %}
+    {% for member in enum %}
+      <option value="{{ member.value }}" {{ 'selected' if values.get(name) is not none and values.get(name)|string == member.value }}>{{ member.value | label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro relation_field(name, label_text, items, attr='full_name', blank='—', required=false) %}
+<div class="field">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <select id="{{ name }}" name="{{ name }}" {{ 'required' if required }}>
+    {% if not required %}<option value="">{{ blank }}</option>{% endif %}
+    {% for item in items %}
+      <option value="{{ item.id }}" {{ 'selected' if values.get(name)|string == item.id }}>{{ item[attr] }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro multi_relation_field(name, label_text, items, selected_ids, attr='full_name') %}
+<div class="field full">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <select id="{{ name }}" name="{{ name }}" multiple>
+    {% for item in items %}
+      <option value="{{ item.id }}" {{ 'selected' if item.id in selected_ids }}>{{ item[attr] }}</option>
+    {% endfor %}
+  </select>
+  <div class="hint">Hold ⌘ / Ctrl to select more than one.</div>
+</div>
+{% endmacro %}
+
+{% macro checkbox_field(name, label_text) %}
+<div class="field checkbox">
+  <input type="checkbox" id="{{ name }}" name="{{ name }}" value="1" {{ 'checked' if values.get(name) }}>
+  <label for="{{ name }}">{{ label_text }}</label>
+</div>
+{% endmacro %}
+
+{#- ---- filters ---- -#}
+
+{% macro filter_search(placeholder='Search…') %}
+<div class="field grow">
+  <label for="q">Search</label>
+  <input type="search" id="q" name="q" value="{{ filters.get('q', '') }}" placeholder="{{ placeholder }}">
+</div>
+{% endmacro %}
+
+{% macro filter_enum(name, label_text, enum, blank='Any') %}
+<div class="field">
+  <label for="f-{{ name }}">{{ label_text }}</label>
+  <select id="f-{{ name }}" name="{{ name }}">
+    <option value="">{{ blank }}</option>
+    {% for member in enum %}
+      <option value="{{ member.value }}" {{ 'selected' if filters.get(name) == member.value }}>{{ member.value | label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro filter_relation(name, label_text, items, attr='full_name', blank='Any') %}
+<div class="field">
+  <label for="f-{{ name }}">{{ label_text }}</label>
+  <select id="f-{{ name }}" name="{{ name }}">
+    <option value="">{{ blank }}</option>
+    {% for item in items %}
+      <option value="{{ item.id }}" {{ 'selected' if filters.get(name) == item.id }}>{{ item[attr] }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro filter_choice(name, label_text, choices, blank='Any') %}
+<div class="field">
+  <label for="f-{{ name }}">{{ label_text }}</label>
+  <select id="f-{{ name }}" name="{{ name }}">
+    <option value="">{{ blank }}</option>
+    {% for value, text in choices %}
+      <option value="{{ value }}" {{ 'selected' if filters.get(name) == value }}>{{ text }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro filter_date(name, label_text) %}
+<div class="field">
+  <label for="f-{{ name }}">{{ label_text }}</label>
+  <input type="date" id="f-{{ name }}" name="{{ name }}" value="{{ filters.get(name, '') }}">
+</div>
+{% endmacro %}
+
+{% macro delete_button(slug, obj_id, what='this record', extra='') %}
+<form class="inline-form" method="post" action="/{{ slug }}/{{ obj_id }}/delete"
+      onsubmit="return confirm('Delete {{ what }}? {{ extra }}This cannot be undone.')">
+  <button type="submit" class="btn danger small">Delete</button>
+</form>
+{% endmacro %}

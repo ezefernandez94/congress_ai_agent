@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Chat{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Chat</h1>
+    <div class="sub">Same agent and same history as Telegram — a conversation started there continues here.</div></div>
+</div>
+<div class="card" id="chat-panel">
+  {% include "chat/_log.html" %}
+</div>
+{% endblock %}

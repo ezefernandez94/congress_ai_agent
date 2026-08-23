@@ -1,0 +1,16 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, array_field with context %}
+{% block fields %}
+  {{ text_field('name', 'Name', required=true) }}
+  {{ text_field('industry', 'Industry') }}
+  {{ text_field('stage', 'Stage', hint='e.g. seed, series A') }}
+  {{ text_field('website', 'Website', type='url') }}
+  {{ text_field('linkedin_url', 'LinkedIn URL', type='url') }}
+  {{ text_field('crunchbase_url', 'Crunchbase URL', type='url') }}
+  {{ text_field('funding_total', 'Total funding (USD)', type='number') }}
+  {{ text_field('last_funding_date', 'Last funding date', type='date') }}
+  {{ array_field('investor_list', 'Investors') }}
+  {{ array_field('relevance_tags', 'Relevance tags') }}
+  {{ textarea_field('company_summary', 'Summary', rows=4) }}
+  {{ textarea_field('strategic_notes', 'Strategic notes', rows=4) }}
+{% endblock %}

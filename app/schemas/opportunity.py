@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -26,6 +26,10 @@ class OpportunityCreate(OpportunityBase):
 
 
 class OpportunityUpdate(BaseModel):
+    title: str | None = None
+    opportunity_type: OpportunityType | None = None
+    person_id: str | None = None
+    company_id: str | None = None
     stage: OpportunityStage | None = None
     estimated_value: str | None = None
     probability: float | None = None
@@ -41,5 +45,5 @@ class OpportunityRead(OpportunityBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    created_at: date
-    updated_at: date
+    created_at: datetime
+    updated_at: datetime

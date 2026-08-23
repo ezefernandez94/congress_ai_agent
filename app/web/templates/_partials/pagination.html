@@ -1,0 +1,13 @@
+{% if page.total > 0 %}
+<div class="pager">
+  <span>{{ page.first_index }}–{{ page.last_index }} of {{ page.total }}</span>
+  <span class="spacer"></span>
+  {% if page.has_prev %}
+    <a class="btn small" href="{{ query_with(filters, page=page.number - 1) }}">← Prev</a>
+  {% endif %}
+  <span>Page {{ page.number }} of {{ page.pages }}</span>
+  {% if page.has_next %}
+    <a class="btn small" href="{{ query_with(filters, page=page.number + 1) }}">Next →</a>
+  {% endif %}
+</div>
+{% endif %}

@@ -1,0 +1,19 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Name</th><th>Industry</th><th>Stage</th><th>Funding</th><th>People</th><th>Website</th><th></th></tr></thead>
+  <tbody>
+    {% for c in rows %}
+    <tr>
+      <td><a class="name" href="/companies/{{ c.id }}">{{ c.name }}</a></td>
+      <td>{{ c.industry or '—' }}</td>
+      <td>{{ c.stage or '—' }}</td>
+      <td>{% if c.funding_total %}${{ '{:,}'.format(c.funding_total) }}{% else %}—{% endif %}</td>
+      <td>{{ c.people | length }}</td>
+      <td>{% if c.website %}<a href="{{ c.website }}" target="_blank" rel="noopener">Site</a>{% else %}—{% endif %}</td>
+      <td class="actions"><a class="btn small" href="/companies/{{ c.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="7"><div class="empty">No companies match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

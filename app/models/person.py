@@ -50,7 +50,10 @@ class Person(Base, TimestampMixin):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
 
     company: Mapped["Company | None"] = relationship("Company", back_populates="people")  # noqa: F821
-    interactions: Mapped[list["Interaction"]] = relationship("Interaction", back_populates="person")  # noqa: F821
+    interactions: Mapped[list["Interaction"]] = relationship(  # noqa: F821
+        "Interaction", back_populates="person", cascade="all, delete-orphan"
+    )
     tasks: Mapped[list["Task"]] = relationship("Task", foreign_keys="Task.related_person_id", back_populates="person")  # noqa: F821
     opportunities: Mapped[list["Opportunity"]] = relationship("Opportunity", back_populates="person")  # noqa: F821
     meetings: Mapped[list["Meeting"]] = relationship("Meeting", secondary="meeting_participants", back_populates="participants")  # noqa: F821
+    note_records: Mapped[list["Note"]] = relationship("Note", back_populates="person")  # noqa: F821

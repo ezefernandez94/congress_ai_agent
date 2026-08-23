@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ obj.title }}</h1>
+    <div class="sub">{{ obj.scheduled_at | fmt_datetime }} · {{ obj.meeting_type | label }} · {{ obj.duration_minutes }} min</div></div>
+  <div><a class="btn" href="/meetings">Back</a><a class="btn primary" href="/meetings/{{ obj.id }}/edit">Edit</a></div>
+</div>
+
+<div class="grid cols-2">
+  <div>
+    <div class="card">
+      <h2>Details</h2>
+      <dl class="props">
+        <dt>Location</dt><dd>{{ obj.location or '—' }}</dd>
+        <dt>Sentiment</dt><dd>{% if obj.sentiment %}<span class="badge {{ obj.sentiment.value }}">{{ obj.sentiment | label }}</span>{% else %}—{% endif %}</dd>
+        <dt>Followed up</dt><dd>{{ 'Yes' if obj.followed_up else 'No' }}{% if obj.followed_up_at %} · {{ obj.followed_up_at | fmt_datetime }}{% endif %}</dd>
+        <dt>Participants</dt><dd>
+          {% for p in obj.participants %}<a href="/people/{{ p.id }}">{{ p.full_name }}</a>{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}
+        </dd>
+      </dl>
+    </div>
+    {% if obj.prep_brief %}<div class="card"><h2>Prep brief</h2><div class="prose">{{ obj.prep_brief }}</div></div>{% endif %}
+    {% if obj.outcome_summary %}<div class="card"><h2>Outcome</h2><div class="prose">{{ obj.outcome_summary }}</div></div>{% endif %}
+  </div>
+  <div>
+    <div class="card">
+      <h2>Talking points</h2>
+      <ul class="timeline">{% for t in obj.talking_points or [] %}<li>{{ t }}</li>{% else %}<li class="when">None.</li>{% endfor %}</ul>
+      <h2 style="margin-top:18px">Questions to ask</h2>
+      <ul class="timeline">{% for q in obj.questions_to_ask or [] %}<li>{{ q }}</li>{% else %}<li class="when">None.</li>{% endfor %}</ul>
+      <h2 style="margin-top:18px">Next steps</h2>
+      <ul class="timeline">{% for s in obj.next_steps or [] %}<li>{{ s }}</li>{% else %}<li class="when">None.</li>{% endfor %}</ul>
+    </div>
+    <div class="card">
+      <h2>Interactions ({{ obj.interactions | length }})</h2>
+      <ul class="timeline">
+        {% for i in obj.interactions %}
+        <li><a href="/interactions/{{ i.id }}">{{ (i.processed_summary or i.raw_note) | truncate(70) }}</a>
+          <div class="when">{{ i.occurred_at | fmt_datetime }}</div></li>
+        {% else %}<li class="when">None logged.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,3 +1,5 @@
+import hashlib
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -31,6 +33,10 @@ class Settings(BaseSettings):
     # Injected by Railway once the service has a generated public domain.
     # Preferred over BASE_URL in production so the hostname is never hand-typed.
     railway_public_domain: str = ""
+
+    # Web frontend
+    web_session_secret: str = ""     # signs the browser session cookie
+    telegram_bot_username: str = ""  # without the @ — required by the login widget
 
     # Optional
     apollo_api_key: str = ""
@@ -93,6 +99,26 @@ class Settings(BaseSettings):
 
     def is_allowed_user(self, user_id: int) -> bool:
         return user_id in self.allowed_user_ids
+
+    @property
+    def session_secret(self) -> str:
+        """Key used to sign the web session cookie.
+
+        Falls back to a value derived from the bot token so an existing
+        deployment keeps working without a new env var, at the cost of
+        invalidating every session if the token is ever rotated. Set
+        WEB_SESSION_SECRET explicitly in production.
+        """
+        if self.web_session_secret:
+            return self.web_session_secret
+        return hashlib.sha256(
+            f"web-session:{self.telegram_bot_token or self.webhook_secret}".encode()
+        ).hexdigest()
+
+    @property
+    def login_widget_ready(self) -> bool:
+        """Whether the Telegram Login Widget can actually be rendered."""
+        return bool(self.telegram_bot_username and self.telegram_bot_token)
 
     @property
     def is_production(self) -> bool:

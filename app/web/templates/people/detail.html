@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.full_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ obj.full_name }}</h1>
+    <div class="sub">
+      {{ obj.role or 'Role unknown' }}{% if obj.company %} · <a href="/companies/{{ obj.company.id }}">{{ obj.company.name }}</a>{% endif %}
+    </div>
+  </div>
+  <div>
+    <a class="btn" href="/people">Back</a>
+    <a class="btn primary" href="/people/{{ obj.id }}/edit">Edit</a>
+  </div>
+</div>
+
+<div class="chips" style="margin-bottom:16px">
+  <span class="badge">{{ obj.contact_type | label }}</span>
+  <span class="badge tier-{{ obj.priority_tier.value }}">Tier {{ obj.priority_tier.value }}</span>
+  <span class="badge {{ obj.interest_level.value }}">{{ obj.interest_level | label }}</span>
+  <span class="badge {{ obj.follow_up_status.value }}">{{ obj.follow_up_status | label }}</span>
+  <span class="badge">Warmth {{ '%.2f' % obj.warmth_score }}</span>
+</div>
+
+<div class="grid cols-2">
+  <div>
+    <div class="card">
+      <h2>Details</h2>
+      <dl class="props">
+        <dt>Email</dt><dd>{% if obj.email %}<a href="mailto:{{ obj.email }}">{{ obj.email }}</a>{% else %}—{% endif %}</dd>
+        <dt>Phone</dt><dd>{{ obj.phone or '—' }}</dd>
+        <dt>LinkedIn</dt><dd>{% if obj.linkedin_url %}<a href="{{ obj.linkedin_url }}" target="_blank" rel="noopener">Profile</a>{% else %}—{% endif %}</dd>
+        <dt>Twitter</dt><dd>{{ obj.twitter_handle or '—' }}</dd>
+        <dt>How met</dt><dd>{{ obj.how_met or '—' }}</dd>
+        <dt>First contact</dt><dd>{{ obj.first_interaction_date | fmt_date }}</dd>
+        <dt>Last contact</dt><dd>{{ obj.last_interaction_date | fmt_date }}</dd>
+        <dt>Next action</dt><dd>{{ obj.next_action or '—' }}{% if obj.next_action_due %} <span class="badge">due {{ obj.next_action_due | fmt_date }}</span>{% endif %}</dd>
+        <dt>Enriched</dt><dd>{{ obj.enriched_at | fmt_datetime }}{% if obj.enrichment_source %} · {{ obj.enrichment_source }}{% endif %}</dd>
+      </dl>
+    </div>
+
+    {% if obj.notes %}
+    <div class="card"><h2>Notes</h2><div class="prose">{{ obj.notes }}</div></div>
+    {% endif %}
+    {% if obj.bio_snapshot %}
+    <div class="card"><h2>Bio</h2><div class="prose">{{ obj.bio_snapshot }}</div></div>
+    {% endif %}
+    {% if obj.linkedin_summary %}
+    <div class="card"><h2>LinkedIn summary</h2><div class="prose">{{ obj.linkedin_summary }}</div></div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Interactions ({{ obj.interactions | length }})</h2>
+        <a class="btn small" href="/interactions/new">Log one</a>
+      </div>
+      <ul class="timeline">
+        {% for i in obj.interactions | sort(attribute='occurred_at', reverse=true) %}
+        <li>
+          <a href="/interactions/{{ i.id }}">{{ (i.processed_summary or i.raw_note) | truncate(80) }}</a>
+          <div class="when">{{ i.occurred_at | fmt_datetime }} · {{ i.interaction_type | label }}{% if i.sentiment %} · {{ i.sentiment | label }}{% endif %}</div>
+        </li>
+        {% else %}<li class="when">Nothing logged yet.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Tasks ({{ obj.tasks | length }})</h2>
+        <a class="btn small" href="/tasks/new">Add task</a>
+      </div>
+      <ul class="timeline">
+        {% for t in obj.tasks %}
+        <li>
+          <a href="/tasks/{{ t.id }}">{{ t.title }}</a>
+          <span class="badge {{ t.priority.value }}">{{ t.priority | label }}</span>
+          <span class="badge {{ t.status.value }}">{{ t.status | label }}</span>
+          <div class="when">{% if t.due_date %}Due {{ t.due_date | fmt_date }}{% else %}No due date{% endif %}</div>
+        </li>
+        {% else %}<li class="when">No tasks.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Opportunities ({{ obj.opportunities | length }})</h2>
+      <ul class="timeline">
+        {% for o in obj.opportunities %}
+        <li>
+          <a href="/opportunities/{{ o.id }}">{{ o.title }}</a>
+          <span class="badge {{ o.stage.value }}">{{ o.stage | label }}</span>
+          <div class="when">{{ o.opportunity_type | label }}{% if o.estimated_value %} · {{ o.estimated_value }}{% endif %}</div>
+        </li>
+        {% else %}<li class="when">None.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Meetings ({{ obj.meetings | length }})</h2>
+      <ul class="timeline">
+        {% for m in obj.meetings %}
+        <li><a href="/meetings/{{ m.id }}">{{ m.title }}</a><div class="when">{{ m.scheduled_at | fmt_datetime }}</div></li>
+        {% else %}<li class="when">None.</li>{% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Notes ({{ obj.note_records | length }})</h2>
+      <ul class="timeline">
+        {% for n in obj.note_records %}
+        <li><a href="/notes/{{ n.id }}">{{ n.raw_content | truncate(80) }}</a><div class="when">{{ n.created_at | fmt_datetime }} · {{ n.content_type | label }}</div></li>
+        {% else %}<li class="when">None.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

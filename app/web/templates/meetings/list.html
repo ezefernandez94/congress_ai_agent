@@ -1,0 +1,10 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search, filter_enum, filter_relation, filter_choice, filter_date with context %}
+{% block filters_form %}
+  {{ filter_search('Title, location, outcome…') }}
+  {{ filter_enum('meeting_type', 'Type', enums.MeetingType) }}
+  {{ filter_relation('conference_id', 'Conference', conferences, attr='name') }}
+  {{ filter_choice('followed_up', 'Followed up', [('yes', 'Yes'), ('no', 'No')]) }}
+  {{ filter_date('from', 'From') }}
+  {{ filter_date('to', 'To') }}
+{% endblock %}

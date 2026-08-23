@@ -1,0 +1,8 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search, filter_enum, filter_relation, filter_choice with context %}
+{% block filters_form %}
+  {{ filter_search('Content or transcript…') }}
+  {{ filter_relation('person_id', 'Person', people) }}
+  {{ filter_enum('content_type', 'Source', enums.NoteSource) }}
+  {{ filter_choice('processed', 'Processed', [('yes', 'Yes'), ('no', 'No')]) }}
+{% endblock %}

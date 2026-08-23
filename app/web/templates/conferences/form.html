@@ -1,0 +1,14 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, array_field, checkbox_field with context %}
+{% block fields %}
+  {{ text_field('name', 'Name', required=true, full=true) }}
+  {{ text_field('location', 'Location') }}
+  {{ text_field('start_date', 'Start date', type='date') }}
+  {{ text_field('end_date', 'End date', type='date') }}
+  {{ checkbox_field('is_active', 'Active conference') }}
+  {{ checkbox_field('schedule_imported', 'Schedule imported') }}
+  {{ checkbox_field('summary_generated', 'Summary generated') }}
+  {{ array_field('goals', 'Goals') }}
+  {{ array_field('target_contact_types', 'Target contact types') }}
+  {{ textarea_field('post_conference_report', 'Post-conference report', rows=8) }}
+{% endblock %}

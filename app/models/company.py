@@ -34,3 +34,4 @@ class Company(Base, TimestampMixin):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
 
     people: Mapped[list["Person"]] = relationship("Person", back_populates="company")  # noqa: F821
+    opportunities: Mapped[list["Opportunity"]] = relationship("Opportunity", back_populates="company")  # noqa: F821

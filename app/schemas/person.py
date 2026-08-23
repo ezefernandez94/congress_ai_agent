@@ -35,6 +35,7 @@ class PersonUpdate(BaseModel):
     linkedin_url: str | None = None
     email: str | None = None
     phone: str | None = None
+    twitter_handle: str | None = None
     contact_type: ContactType | None = None
     priority_tier: PriorityTier | None = None
     interest_level: InterestLevel | None = None

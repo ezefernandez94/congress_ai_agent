@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Bot users{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Bot users</h1><div class="sub">Who may talk to the bot and use this dashboard.</div></div>
+</div>
+
+<div class="card">
+  <h2>Add a user</h2>
+  <form method="post" action="/users" class="form-grid">
+    <div class="field">
+      <label for="telegram_user_id">Telegram user ID *</label>
+      <input type="text" id="telegram_user_id" name="telegram_user_id" required
+             inputmode="numeric" placeholder="123456789">
+      <div class="hint">They can get theirs by sending /whoami to the bot.</div>
+    </div>
+    <div class="field">
+      <label for="display_name">Display name</label>
+      <input type="text" id="display_name" name="display_name">
+    </div>
+    <div class="field full"><button type="submit" class="btn primary">Add user</button></div>
+  </form>
+</div>
+
+<div class="card flush">
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Telegram ID</th><th>Name</th><th>Role</th><th>Access</th><th>Digest</th><th>Added</th><th></th></tr></thead>
+    <tbody>
+      {% for u in rows %}
+      <tr>
+        <td>{{ u.telegram_user_id }}{% if u.telegram_user_id == user.telegram_user_id %} <span class="badge">you</span>{% endif %}</td>
+        <td>{{ u.display_name or '—' }}</td>
+        <td>{% if u.is_owner %}<span class="badge tier-A">Owner</span>{% else %}<span class="badge">Member</span>{% endif %}</td>
+        <td>{% if u.is_active %}<span class="badge completed">Active</span>{% else %}<span class="badge negative">Revoked</span>{% endif %}</td>
+        <td>{% if u.receives_digest %}<span class="badge completed">On</span>{% else %}<span class="badge">Off</span>{% endif %}</td>
+        <td>{{ u.created_at | fmt_date }}</td>
+        <td class="actions">
+          <form class="inline-form" method="post" action="/users/{{ u.telegram_user_id }}/digest">
+            <input type="hidden" name="enabled" value="{{ '0' if u.receives_digest else '1' }}">
+            <button type="submit" class="btn small">{{ 'Mute digest' if u.receives_digest else 'Send digest' }}</button>
+          </form>
+          {% if u.telegram_user_id != user.telegram_user_id %}
+          <form class="inline-form" method="post" action="/users/{{ u.telegram_user_id }}/active">
+            <input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}">
+            <button type="submit" class="btn small {{ 'danger' if u.is_active }}">{{ 'Revoke' if u.is_active else 'Restore' }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="7"><div class="empty">No users yet.</div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

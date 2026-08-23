@@ -1,0 +1,19 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>When</th><th>Person</th><th>Type</th><th>Summary</th><th>Sentiment</th><th>Source</th><th></th></tr></thead>
+  <tbody>
+    {% for i in rows %}
+    <tr>
+      <td>{{ i.occurred_at | fmt_datetime }}</td>
+      <td>{% if i.person %}<a href="/people/{{ i.person.id }}">{{ i.person.full_name }}</a>{% else %}—{% endif %}</td>
+      <td>{{ i.interaction_type | label }}</td>
+      <td><a href="/interactions/{{ i.id }}">{{ (i.processed_summary or i.raw_note) | truncate(80) }}</a></td>
+      <td>{% if i.sentiment %}<span class="badge {{ i.sentiment.value }}">{{ i.sentiment | label }}</span>{% else %}—{% endif %}</td>
+      <td>{{ i.source | label }}</td>
+      <td class="actions"><a class="btn small" href="/interactions/{{ i.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="7"><div class="empty">No interactions match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

@@ -1,0 +1,12 @@
+{#- A <select> over an enum's members. `blank` is the "any / unset" label. -#}
+<div class="field {{ extra_class | default('') }}">
+  <label for="{{ name }}">{{ label_text }}</label>
+  <select name="{{ name }}" id="{{ name }}">
+    <option value="">{{ blank | default('Any') }}</option>
+    {% for member in enum %}
+      <option value="{{ member.value }}" {{ 'selected' if selected and selected|string == member.value }}>
+        {{ member.value | label }}
+      </option>
+    {% endfor %}
+  </select>
+</div>

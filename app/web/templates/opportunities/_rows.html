@@ -1,0 +1,21 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Opportunity</th><th>Type</th><th>Stage</th><th>Person</th><th>Company</th><th>Value</th><th>Prob.</th><th>Close</th><th></th></tr></thead>
+  <tbody>
+    {% for o in rows %}
+    <tr>
+      <td><a class="name" href="/opportunities/{{ o.id }}">{{ o.title }}</a></td>
+      <td>{{ o.opportunity_type | label }}</td>
+      <td><span class="badge {{ o.stage.value }}">{{ o.stage | label }}</span></td>
+      <td>{% if o.person %}<a href="/people/{{ o.person.id }}">{{ o.person.full_name }}</a>{% else %}—{% endif %}</td>
+      <td>{% if o.company %}<a href="/companies/{{ o.company.id }}">{{ o.company.name }}</a>{% else %}—{% endif %}</td>
+      <td>{{ o.estimated_value or '—' }}</td>
+      <td>{{ '%d%%' % (o.probability * 100) }}</td>
+      <td>{{ o.expected_close_date | fmt_date }}</td>
+      <td class="actions"><a class="btn small" href="/opportunities/{{ o.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="9"><div class="empty">No opportunities match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

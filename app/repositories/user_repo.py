@@ -19,6 +19,16 @@ class UserRepository(BaseRepository[BotUser]):
         result = await self.db.execute(select(BotUser).order_by(BotUser.created_at))
         return list(result.scalars().all())
 
+    async def first_owner(self) -> BotUser | None:
+        """The earliest active owner — the identity the dev-mode web bypass assumes."""
+        result = await self.db.execute(
+            select(BotUser)
+            .where(BotUser.is_owner.is_(True), BotUser.is_active.is_(True))
+            .order_by(BotUser.created_at)
+            .limit(1)
+        )
+        return result.scalars().first()
+
     async def list_digest_recipients(self) -> list[BotUser]:
         result = await self.db.execute(
             select(BotUser)

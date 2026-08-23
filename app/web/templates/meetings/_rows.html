@@ -1,0 +1,21 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>When</th><th>Title</th><th>Type</th><th>Participants</th><th>Location</th><th>Followed up</th><th></th></tr></thead>
+  <tbody>
+    {% for m in rows %}
+    <tr>
+      <td>{{ m.scheduled_at | fmt_datetime }}</td>
+      <td><a class="name" href="/meetings/{{ m.id }}">{{ m.title }}</a></td>
+      <td>{{ m.meeting_type | label }}</td>
+      <td>
+        {% for p in m.participants %}<a href="/people/{{ p.id }}">{{ p.full_name }}</a>{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}
+      </td>
+      <td>{{ m.location or '—' }}</td>
+      <td>{% if m.followed_up %}<span class="badge completed">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
+      <td class="actions"><a class="btn small" href="/meetings/{{ m.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="7"><div class="empty">No meetings match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

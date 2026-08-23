@@ -1,41 +1,67 @@
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.base import TaskPriority, TaskStatus
-from app.models.conference import Conference
 from app.models.meeting import Meeting
 from app.models.person import Person
 from app.models.task import Task
 
 
-class DigestService:
-    async def generate_daily_digest(self, db: AsyncSession, conference_id: str | None = None) -> str:
-        today = date.today()
+@dataclass
+class DigestData:
+    """The queried state behind the morning briefing.
 
-        # Pending tasks
+    Kept separate from the Telegram formatting so the web dashboard can render
+    the same numbers without parsing a Markdown blob back apart.
+    """
+
+    day: date
+    tasks: list[Task] = field(default_factory=list)
+    urgent: list[Task] = field(default_factory=list)
+    high: list[Task] = field(default_factory=list)
+    other: list[Task] = field(default_factory=list)
+    meetings: list[Meeting] = field(default_factory=list)
+    priority_contacts: list[Person] = field(default_factory=list)
+    overdue: list[Task] = field(default_factory=list)
+
+    @property
+    def top_task(self) -> Task | None:
+        """The single thing worth doing first."""
+        if self.urgent:
+            return self.urgent[0]
+        if self.high:
+            return self.high[0]
+        return None
+
+
+class DigestService:
+    async def collect(self, db: AsyncSession, conference_id: str | None = None) -> DigestData:
+        today = date.today()
+        day_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
+        day_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc)
+
         tasks_result = await db.execute(
             select(Task)
+            .options(selectinload(Task.person))
             .where(Task.status == TaskStatus.pending)
             .order_by(Task.priority, Task.due_date)
             .limit(20)
         )
         tasks = list(tasks_result.scalars().all())
 
-        # Today's meetings
         meetings_result = await db.execute(
             select(Meeting)
-            .where(
-                Meeting.scheduled_at >= datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc),
-                Meeting.scheduled_at < datetime.combine(today, datetime.max.time()).replace(tzinfo=timezone.utc),
-            )
+            .options(selectinload(Meeting.participants))
+            .where(Meeting.scheduled_at >= day_start, Meeting.scheduled_at <= day_end)
             .order_by(Meeting.scheduled_at)
         )
-        meetings = list(meetings_result.scalars().all())
+        meetings = list(meetings_result.scalars().unique().all())
 
-        # High-priority contacts not yet followed up
-        priority_contacts_result = await db.execute(
+        priority_result = await db.execute(
             select(Person)
             .where(
                 Person.priority_tier.in_(["A", "B"]),
@@ -43,67 +69,82 @@ class DigestService:
             )
             .limit(5)
         )
-        priority_contacts = list(priority_contacts_result.scalars().all())
+        priority_contacts = list(priority_result.scalars().all())
 
-        lines = [f"*Good morning! Here's your conference digest for {today.strftime('%A, %B %d')}*\n"]
+        overdue_result = await db.execute(
+            select(Task)
+            .options(selectinload(Task.person))
+            .where(Task.status == TaskStatus.pending, Task.due_date < today)
+            .order_by(Task.due_date)
+            .limit(5)
+        )
+        overdue = list(overdue_result.scalars().all())
 
-        # Tasks section
-        urgent = [t for t in tasks if t.priority == TaskPriority.urgent]
-        high = [t for t in tasks if t.priority == TaskPriority.high]
-        other = [t for t in tasks if t.priority not in (TaskPriority.urgent, TaskPriority.high)]
+        return DigestData(
+            day=today,
+            tasks=tasks,
+            urgent=[t for t in tasks if t.priority == TaskPriority.urgent],
+            high=[t for t in tasks if t.priority == TaskPriority.high],
+            other=[
+                t for t in tasks
+                if t.priority not in (TaskPriority.urgent, TaskPriority.high)
+            ],
+            meetings=meetings,
+            priority_contacts=priority_contacts,
+            overdue=overdue,
+        )
 
-        lines.append(f"*Tasks ({len(tasks)} pending)*")
-        if urgent:
+    def format_for_telegram(self, data: DigestData) -> str:
+        """Render DigestData as the Telegram Markdown the bot has always sent."""
+        lines = [
+            f"*Good morning! Here's your conference digest for "
+            f"{data.day.strftime('%A, %B %d')}*\n"
+        ]
+
+        lines.append(f"*Tasks ({len(data.tasks)} pending)*")
+        if data.urgent:
             lines.append("⚠️ *Urgent:*")
-            for t in urgent[:3]:
+            for t in data.urgent[:3]:
                 due = f" (due {t.due_date})" if t.due_date else ""
                 lines.append(f"  • {t.title}{due}")
-        if high:
+        if data.high:
             lines.append("🔴 *High:*")
-            for t in high[:3]:
+            for t in data.high[:3]:
                 due = f" (due {t.due_date})" if t.due_date else ""
                 lines.append(f"  • {t.title}{due}")
-        if other:
-            lines.append(f"📋 *Other:* {len(other)} more tasks")
+        if data.other:
+            lines.append(f"📋 *Other:* {len(data.other)} more tasks")
 
-        # Meetings section
-        lines.append(f"\n*Today's Meetings ({len(meetings)})*")
-        if meetings:
-            for m in meetings:
+        lines.append(f"\n*Today's Meetings ({len(data.meetings)})*")
+        if data.meetings:
+            for m in data.meetings:
                 time_str = m.scheduled_at.strftime("%H:%M") if m.scheduled_at else "TBD"
                 lines.append(f"  • {time_str} — {m.title}")
         else:
             lines.append("  No meetings scheduled today.")
 
-        # Priority contacts
-        if priority_contacts:
-            lines.append(f"\n*Priority Contacts to Approach*")
-            for p in priority_contacts:
+        if data.priority_contacts:
+            lines.append("\n*Priority Contacts to Approach*")
+            for p in data.priority_contacts:
                 role_str = f" ({p.role})" if p.role else ""
-                lines.append(f"  • {p.full_name}{role_str} — {p.priority_tier} tier")
+                lines.append(f"  • {p.full_name}{role_str} — {p.priority_tier.value} tier")
 
-        # Overdue follow-ups
-        overdue_result = await db.execute(
-            select(Task)
-            .where(
-                Task.status == TaskStatus.pending,
-                Task.due_date < today,
-            )
-            .limit(5)
-        )
-        overdue = list(overdue_result.scalars().all())
-        if overdue:
-            lines.append(f"\n*⚠️ Overdue Follow-ups ({len(overdue)})*")
-            for t in overdue:
+        if data.overdue:
+            lines.append(f"\n*⚠️ Overdue Follow-ups ({len(data.overdue)})*")
+            for t in data.overdue:
                 lines.append(f"  • {t.title} (was due {t.due_date})")
 
-        # Most important action
-        if urgent:
-            lines.append(f"\n*Most important thing today:* {urgent[0].title}")
-        elif high:
-            lines.append(f"\n*Most important thing today:* {high[0].title}")
+        top = data.top_task
+        if top is not None:
+            lines.append(f"\n*Most important thing today:* {top.title}")
 
         return "\n".join(lines)
+
+    async def generate_daily_digest(
+        self, db: AsyncSession, conference_id: str | None = None
+    ) -> str:
+        data = await self.collect(db, conference_id)
+        return self.format_for_telegram(data)
 
 
 digest_service = DigestService()

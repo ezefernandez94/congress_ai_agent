@@ -30,3 +30,4 @@ class Opportunity(Base, TimestampMixin):
     next_step_due: Mapped[date | None] = mapped_column(nullable=True)
 
     person: Mapped["Person | None"] = relationship("Person", back_populates="opportunities")  # noqa: F821
+    company: Mapped["Company | None"] = relationship("Company", back_populates="opportunities")  # noqa: F821

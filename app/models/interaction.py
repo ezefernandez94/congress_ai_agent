@@ -30,3 +30,4 @@ class Interaction(Base, TimestampMixin):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
 
     person: Mapped["Person"] = relationship("Person", back_populates="interactions")  # noqa: F821
+    meeting: Mapped["Meeting | None"] = relationship("Meeting", back_populates="interactions")  # noqa: F821

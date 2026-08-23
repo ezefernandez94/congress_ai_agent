@@ -5,6 +5,9 @@ import httpx
 from fastapi import FastAPI
 from telegram.ext import Application
 
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
 from app.api.middleware import RequestLoggingMiddleware
 from app.api.routes.health import router as health_router
 from app.api.routes.webhook import router as webhook_router, set_bot_application
@@ -13,6 +16,10 @@ from app.bot.router import register_handlers
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
 from app.jobs.scheduler import start_scheduler, stop_scheduler
+from app.web import STATIC_DIR
+from app.web.auth import NotAnOwner, NotLoggedIn
+from app.web.rendering import redirect
+from app.web.routes import web_routers
 
 _bot_app: Application | None = None
 _polling_task: asyncio.Task | None = None
@@ -176,8 +183,40 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.add_middleware(RequestLoggingMiddleware)
+
+    # Signed cookie holding nothing but the Telegram user ID. SameSite=Lax is
+    # what stops a cross-site form from POSTing as the logged-in user, so the
+    # web routes need no separate CSRF token.
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret,
+        session_cookie="conference_session",
+        same_site="lax",
+        https_only=settings.is_production,
+        max_age=60 * 60 * 24 * 30,
+    )
+
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    # A browser asking for a page it may not see should land on the login
+    # screen, not a JSON 401 body.
+    @app.exception_handler(NotLoggedIn)
+    async def _not_logged_in(request, exc: NotLoggedIn):
+        if exc.reason == "no_owner_seeded":
+            return redirect(
+                "/login?error=No+owner+is+seeded.+Set+TELEGRAM_ALLOWED_USER_IDS+and+restart."
+            )
+        return redirect("/login")
+
+    @app.exception_handler(NotAnOwner)
+    async def _not_an_owner(request, exc: NotAnOwner):
+        return redirect("/?error=That+page+is+restricted+to+owners.")
+
     app.include_router(health_router)
     app.include_router(webhook_router)
+    for router in web_routers:
+        app.include_router(router)
+
     return app
 
 

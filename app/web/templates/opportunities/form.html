@@ -1,0 +1,17 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, array_field, enum_field, relation_field with context %}
+{% block fields %}
+  {{ text_field('title', 'Title', required=true, full=true) }}
+  {{ enum_field('opportunity_type', 'Type', enums.OpportunityType, required=true) }}
+  {{ enum_field('stage', 'Stage', enums.OpportunityStage, required=true) }}
+  {{ relation_field('person_id', 'Person', people, blank='No person') }}
+  {{ relation_field('company_id', 'Company', companies, attr='name', blank='No company') }}
+  {{ text_field('estimated_value', 'Estimated value', hint='Free text, e.g. "$50k ARR"') }}
+  {{ text_field('probability', 'Probability', type='number', hint='0.0 – 1.0') }}
+  {{ text_field('expected_close_date', 'Expected close', type='date') }}
+  {{ text_field('next_step', 'Next step') }}
+  {{ text_field('next_step_due', 'Next step due', type='date') }}
+  {{ array_field('pitch_feedback', 'Pitch feedback') }}
+  {{ array_field('objections_raised', 'Objections raised') }}
+  {{ textarea_field('notes', 'Notes', rows=5) }}
+{% endblock %}

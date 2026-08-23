@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ obj.title }}</h1><div class="sub">{{ obj.opportunity_type | label }}</div></div>
+  <div><a class="btn" href="/opportunities">Back</a><a class="btn primary" href="/opportunities/{{ obj.id }}/edit">Edit</a></div>
+</div>
+
+<div class="chips" style="margin-bottom:16px">
+  <span class="badge {{ obj.stage.value }}">{{ obj.stage | label }}</span>
+  <span class="badge">{{ '%d%%' % (obj.probability * 100) }} likely</span>
+  {% if obj.estimated_value %}<span class="badge">{{ obj.estimated_value }}</span>{% endif %}
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="props">
+      <dt>Person</dt><dd>{% if obj.person %}<a href="/people/{{ obj.person.id }}">{{ obj.person.full_name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Company</dt><dd>{% if obj.company %}<a href="/companies/{{ obj.company.id }}">{{ obj.company.name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Expected close</dt><dd>{{ obj.expected_close_date | fmt_date }}</dd>
+      <dt>Next step</dt><dd>{{ obj.next_step or '—' }}{% if obj.next_step_due %} <span class="badge">due {{ obj.next_step_due | fmt_date }}</span>{% endif %}</dd>
+    </dl>
+    {% if obj.notes %}<h2 style="margin-top:18px">Notes</h2><div class="prose">{{ obj.notes }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Pitch feedback</h2>
+    <ul class="timeline">
+      {% for f in obj.pitch_feedback or [] %}<li>{{ f }}</li>{% else %}<li class="when">None recorded.</li>{% endfor %}
+    </ul>
+    <h2 style="margin-top:18px">Objections</h2>
+    <ul class="timeline">
+      {% for o in obj.objections_raised or [] %}<li>{{ o }}</li>{% else %}<li class="when">None recorded.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

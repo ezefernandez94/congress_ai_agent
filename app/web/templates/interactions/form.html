@@ -1,0 +1,14 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, array_field, enum_field, relation_field with context %}
+{% block fields %}
+  {{ relation_field('person_id', 'Person', people, required=true) }}
+  {{ relation_field('meeting_id', 'Meeting', meetings, attr='title', blank='No meeting') }}
+  {{ enum_field('interaction_type', 'Type', enums.InteractionType, required=true) }}
+  {{ text_field('occurred_at', 'Occurred at', type='datetime-local') }}
+  {{ enum_field('sentiment', 'Sentiment', enums.Sentiment, blank='Unknown') }}
+  {{ enum_field('source', 'Source', enums.NoteSource, required=true) }}
+  {{ array_field('topics_discussed', 'Topics discussed') }}
+  {{ textarea_field('raw_note', 'Raw note', rows=5) }}
+  {{ textarea_field('processed_summary', 'Summary', rows=4) }}
+  {{ textarea_field('transcription', 'Transcription', rows=4) }}
+{% endblock %}

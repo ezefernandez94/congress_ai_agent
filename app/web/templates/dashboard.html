@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if d.conference %}{{ d.conference.name }}{% else %}Dashboard{% endif %}</h1>
+    <div class="sub">
+      {% if d.conference %}
+        {{ d.conference.location or 'Location unset' }} ·
+        {{ d.conference.start_date | fmt_date }} → {{ d.conference.end_date | fmt_date }}
+      {% else %}
+        No active conference. <a href="/conferences/new">Create one</a> so the agent has context.
+      {% endif %}
+    </div>
+  </div>
+  <div class="sub">{{ d.digest.day.strftime('%A, %B %d') }}</div>
+</div>
+
+{% if d.digest.top_task %}
+<div class="flash info">
+  <strong>Most important thing today:</strong>
+  <a href="/tasks/{{ d.digest.top_task.id }}">{{ d.digest.top_task.title }}</a>
+</div>
+{% endif %}
+
+<div class="kpis">
+  <a class="kpi" href="/people"><div class="n">{{ d.total_people }}</div><div class="k">Contacts</div></a>
+  <a class="kpi" href="/companies"><div class="n">{{ d.total_companies }}</div><div class="k">Companies</div></a>
+  <a class="kpi" href="/interactions"><div class="n">{{ d.total_interactions }}</div><div class="k">Interactions</div></a>
+  <a class="kpi" href="/opportunities"><div class="n">{{ d.total_opportunities }}</div><div class="k">Opportunities</div></a>
+  <a class="kpi" href="/tasks?status=pending"><div class="n">{{ d.pending_tasks }}</div><div class="k">Pending tasks</div></a>
+  <a class="kpi {{ 'alert' if d.overdue_tasks }}" href="/tasks?overdue=1"><div class="n">{{ d.overdue_tasks }}</div><div class="k">Overdue</div></a>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <div class="card-head" style="padding:0 0 12px;border:0"><h2>Today's meetings ({{ d.digest.meetings | length }})</h2>
+      <a class="btn small" href="/meetings">All meetings</a></div>
+    <ul class="timeline">
+      {% for m in d.digest.meetings %}
+      <li>
+        <a href="/meetings/{{ m.id }}">{{ m.title }}</a>
+        <div class="when">
+          {{ m.scheduled_at.strftime('%H:%M') if m.scheduled_at else 'TBD' }}
+          {%- if m.location %} · {{ m.location }}{% endif %}
+          {%- if m.participants %} · {% for p in m.participants %}{{ p.full_name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+        </div>
+      </li>
+      {% else %}<li class="when">Nothing scheduled today.</li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-head" style="padding:0 0 12px;border:0"><h2>Needs attention</h2>
+      <a class="btn small" href="/tasks?overdue=1">Overdue tasks</a></div>
+
+    {% if d.digest.overdue %}
+    <ul class="timeline">
+      {% for t in d.digest.overdue %}
+      <li><a href="/tasks/{{ t.id }}">{{ t.title }}</a> <span class="badge overdue">was due {{ t.due_date | fmt_date }}</span>
+        {% if t.person %}<div class="when">{{ t.person.full_name }}</div>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if d.digest.priority_contacts %}
+    <h2 style="margin-top:16px">Priority contacts not yet approached</h2>
+    <ul class="timeline">
+      {% for p in d.digest.priority_contacts %}
+      <li><a href="/people/{{ p.id }}">{{ p.full_name }}</a>
+        <span class="badge tier-{{ p.priority_tier.value }}">{{ p.priority_tier.value }}</span>
+        <div class="when">{{ p.role or 'Role unknown' }}</div></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if not d.digest.overdue and not d.digest.priority_contacts %}
+    <div class="when" style="color:var(--muted)">Nothing overdue and every priority contact has been approached.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head" style="padding:0 0 12px;border:0"><h2>Opportunity pipeline</h2>
+    <a class="btn small" href="/opportunities">All opportunities</a></div>
+  <div class="pipeline">
+    {% for b in d.pipeline %}
+    <a class="stage" href="/opportunities?stage={{ b.stage.value }}" style="color:inherit">
+      <div class="t">{{ b.stage | label }}</div>
+      <div class="n">{{ b.count }}</div>
+      <div class="t">{{ '%.1f' % b.weighted }} weighted</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Contacts by tier</h2>
+    <div class="bars">
+      {% for tier, n in d.by_tier %}
+      <div class="bar-row">
+        <a href="/people?priority_tier={{ tier }}">{{ tier | label }}</a>
+        <div class="track"><div class="fill" style="width: {{ (n / d.max_tier * 100) | round(1) }}%"></div></div>
+        <div class="n">{{ n }}</div>
+      </div>
+      {% else %}<div class="when" style="color:var(--muted)">No contacts yet.</div>{% endfor %}
+    </div>
+
+    <h2 style="margin-top:20px">Contacts by type</h2>
+    <div class="bars">
+      {% for kind, n in d.by_contact_type %}
+      <div class="bar-row">
+        <a href="/people?contact_type={{ kind }}">{{ kind | label }}</a>
+        <div class="track"><div class="fill" style="width: {{ (n / d.max_type * 100) | round(1) }}%"></div></div>
+        <div class="n">{{ n }}</div>
+      </div>
+      {% else %}<div class="when" style="color:var(--muted)">No contacts yet.</div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head" style="padding:0 0 12px;border:0"><h2>Hot contacts</h2>
+      <a class="btn small" href="/people?interest_level=hot">See all</a></div>
+    <ul class="timeline">
+      {% for p in d.hot_contacts %}
+      <li><a href="/people/{{ p.id }}">{{ p.full_name }}</a>
+        <div class="when">
+          {{ p.role or 'Role unknown' }}{% if p.company %} · {{ p.company.name }}{% endif %}
+          · last contact {{ p.last_interaction_date | fmt_date }}
+        </div></li>
+      {% else %}<li class="when">Nobody marked hot yet.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <div class="card-head" style="padding:0 0 12px;border:0"><h2>Recent interactions</h2>
+      <a class="btn small" href="/interactions">All</a></div>
+    <ul class="timeline">
+      {% for i in d.recent_interactions %}
+      <li><a href="/interactions/{{ i.id }}">{{ (i.processed_summary or i.raw_note) | truncate(70) }}</a>
+        <div class="when">{{ i.occurred_at | fmt_datetime }}{% if i.person %} · {{ i.person.full_name }}{% endif %}</div></li>
+      {% else %}<li class="when">Nothing logged yet.</li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-head" style="padding:0 0 12px;border:0"><h2>Newest contacts</h2>
+      <a class="btn small" href="/people/new">Add contact</a></div>
+    <ul class="timeline">
+      {% for p in d.recent_people %}
+      <li><a href="/people/{{ p.id }}">{{ p.full_name }}</a>
+        <span class="badge {{ p.interest_level.value }}">{{ p.interest_level | label }}</span>
+        <div class="when">{{ p.role or 'Role unknown' }}{% if p.company %} · {{ p.company.name }}{% endif %} · added {{ p.created_at | fmt_date }}</div></li>
+      {% else %}<li class="when">No contacts yet.</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, array_field, enum_field, relation_field, multi_relation_field, checkbox_field with context %}
+{% block fields %}
+  {{ text_field('title', 'Title', required=true, full=true) }}
+  {{ enum_field('meeting_type', 'Type', enums.MeetingType, required=true) }}
+  {{ text_field('scheduled_at', 'Scheduled at', type='datetime-local') }}
+  {{ text_field('duration_minutes', 'Duration (minutes)', type='number') }}
+  {{ text_field('location', 'Location') }}
+  {{ relation_field('conference_id', 'Conference', conferences, attr='name', blank='No conference') }}
+  {{ enum_field('sentiment', 'Sentiment', enums.Sentiment, blank='Unknown') }}
+  {{ checkbox_field('followed_up', 'Followed up') }}
+  {{ text_field('followed_up_at', 'Followed up at', type='datetime-local') }}
+  {{ multi_relation_field('participant_ids', 'Participants', people, values.get('participant_ids') or []) }}
+  {{ array_field('talking_points', 'Talking points') }}
+  {{ array_field('questions_to_ask', 'Questions to ask') }}
+  {{ array_field('next_steps', 'Next steps') }}
+  {{ textarea_field('prep_brief', 'Prep brief', rows=5) }}
+  {{ textarea_field('outcome_summary', 'Outcome summary', rows=5) }}
+{% endblock %}

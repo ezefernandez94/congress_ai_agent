@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ obj.name }}</h1><div class="sub">{{ obj.industry or 'Industry unknown' }}{% if obj.stage %} · {{ obj.stage }}{% endif %}</div></div>
+  <div><a class="btn" href="/companies">Back</a><a class="btn primary" href="/companies/{{ obj.id }}/edit">Edit</a></div>
+</div>
+
+<div class="grid cols-2">
+  <div>
+    <div class="card">
+      <h2>Details</h2>
+      <dl class="props">
+        <dt>Website</dt><dd>{% if obj.website %}<a href="{{ obj.website }}" target="_blank" rel="noopener">{{ obj.website }}</a>{% else %}—{% endif %}</dd>
+        <dt>LinkedIn</dt><dd>{% if obj.linkedin_url %}<a href="{{ obj.linkedin_url }}" target="_blank" rel="noopener">Profile</a>{% else %}—{% endif %}</dd>
+        <dt>Crunchbase</dt><dd>{% if obj.crunchbase_url %}<a href="{{ obj.crunchbase_url }}" target="_blank" rel="noopener">Profile</a>{% else %}—{% endif %}</dd>
+        <dt>Funding</dt><dd>{% if obj.funding_total %}${{ '{:,}'.format(obj.funding_total) }}{% else %}—{% endif %}</dd>
+        <dt>Last round</dt><dd>{{ obj.last_funding_date | fmt_date }}</dd>
+        <dt>Investors</dt><dd>{{ obj.investor_list | join(', ') if obj.investor_list else '—' }}</dd>
+        <dt>Tags</dt><dd>{{ obj.relevance_tags | join(', ') if obj.relevance_tags else '—' }}</dd>
+        <dt>Enriched</dt><dd>{{ obj.enriched_at | fmt_datetime }}</dd>
+      </dl>
+    </div>
+    {% if obj.company_summary %}<div class="card"><h2>Summary</h2><div class="prose">{{ obj.company_summary }}</div></div>{% endif %}
+    {% if obj.strategic_notes %}<div class="card"><h2>Strategic notes</h2><div class="prose">{{ obj.strategic_notes }}</div></div>{% endif %}
+  </div>
+  <div>
+    <div class="card">
+      <h2>People ({{ obj.people | length }})</h2>
+      <ul class="timeline">
+        {% for p in obj.people %}
+        <li><a href="/people/{{ p.id }}">{{ p.full_name }}</a> <span class="badge tier-{{ p.priority_tier.value }}">{{ p.priority_tier.value }}</span>
+          <div class="when">{{ p.role or 'Role unknown' }}</div></li>
+        {% else %}<li class="when">Nobody linked to this company yet.</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Opportunities ({{ obj.opportunities | length }})</h2>
+      <ul class="timeline">
+        {% for o in obj.opportunities %}
+        <li><a href="/opportunities/{{ o.id }}">{{ o.title }}</a> <span class="badge {{ o.stage.value }}">{{ o.stage | label }}</span></li>
+        {% else %}<li class="when">None.</li>{% endfor %}
+      </ul>
+    </div>
+    {% if obj.recent_news %}
+    <div class="card">
+      <h2>Recent news</h2>
+      <ul class="timeline">
+        {% for item in obj.recent_news %}
+        <li>{% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.title or item.url }}</a>{% else %}{{ item.title }}{% endif %}
+          {% if item.date %}<div class="when">{{ item.date }}</div>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

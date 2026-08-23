@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Conference{% endblock %}</title>
+  {#- Root-relative, not url_for(): behind a TLS-terminating proxy (Railway,
+      ngrok) the request reaches uvicorn as plain http, so url_for would emit
+      an http:// URL on an https:// page and the browser would block both
+      files as mixed content. These inherit the page's own scheme and host. -#}
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+  {% if user %}
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">Conference</a>
+      <nav class="nav">
+        {% set section = request.url.path.split('/')[1] %}
+        <a href="/" class="{{ 'active' if section == '' }}">Dashboard</a>
+        <a href="/people" class="{{ 'active' if section == 'people' }}">People</a>
+        <a href="/companies" class="{{ 'active' if section == 'companies' }}">Companies</a>
+        <a href="/tasks" class="{{ 'active' if section == 'tasks' }}">Tasks</a>
+        <a href="/opportunities" class="{{ 'active' if section == 'opportunities' }}">Opportunities</a>
+        <a href="/interactions" class="{{ 'active' if section == 'interactions' }}">Interactions</a>
+        <a href="/meetings" class="{{ 'active' if section == 'meetings' }}">Meetings</a>
+        <a href="/notes" class="{{ 'active' if section == 'notes' }}">Notes</a>
+        <a href="/conferences" class="{{ 'active' if section == 'conferences' }}">Conferences</a>
+        <a href="/chat" class="{{ 'active' if section == 'chat' }}">Chat</a>
+        {% if user.is_owner %}<a href="/users" class="{{ 'active' if section == 'users' }}">Users</a>{% endif %}
+      </nav>
+      <span class="whoami">{{ user.display_name or user.telegram_user_id }}</span>
+      <a class="whoami" href="/logout">Sign out</a>
+    </div>
+  </header>
+  {% endif %}
+
+  <main>
+    {% with flash = request.query_params.get('ok') or request.query_params.get('error') %}
+      {% if request.query_params.get('error') %}
+        <div class="flash error">{{ request.query_params.get('error') }}</div>
+      {% elif request.query_params.get('ok') %}
+        <div class="flash success">{{ request.query_params.get('ok') }}</div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Interaction{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if obj.person %}{{ obj.person.full_name }}{% else %}Interaction{% endif %}</h1>
+    <div class="sub">{{ obj.occurred_at | fmt_datetime }} · {{ obj.interaction_type | label }}</div>
+  </div>
+  <div><a class="btn" href="/interactions">Back</a><a class="btn primary" href="/interactions/{{ obj.id }}/edit">Edit</a></div>
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="props">
+      <dt>Person</dt><dd>{% if obj.person %}<a href="/people/{{ obj.person.id }}">{{ obj.person.full_name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Meeting</dt><dd>{% if obj.meeting %}<a href="/meetings/{{ obj.meeting.id }}">{{ obj.meeting.title }}</a>{% else %}—{% endif %}</dd>
+      <dt>Sentiment</dt><dd>{% if obj.sentiment %}<span class="badge {{ obj.sentiment.value }}">{{ obj.sentiment | label }}</span>{% else %}—{% endif %}</dd>
+      <dt>Source</dt><dd>{{ obj.source | label }}</dd>
+      <dt>Topics</dt><dd>{{ obj.topics_discussed | join(', ') if obj.topics_discussed else '—' }}</dd>
+    </dl>
+    {% if obj.commitments_made %}
+    <h2 style="margin-top:18px">Commitments</h2>
+    <ul class="timeline">
+      {% for c in obj.commitments_made %}
+      <li><span class="badge">{{ c.get('who', '?') }}</span> {{ c.get('what', '') }}</li>
+      {% endfor %}
+    </ul>
+    <div class="hint" style="color:var(--muted);font-size:12px;margin-top:6px">Commitments are written by the agent and are read-only here.</div>
+    {% endif %}
+  </div>
+  <div>
+    {% if obj.processed_summary %}<div class="card"><h2>Summary</h2><div class="prose">{{ obj.processed_summary }}</div></div>{% endif %}
+    {% if obj.raw_note %}<div class="card"><h2>Raw note</h2><div class="prose">{{ obj.raw_note }}</div></div>{% endif %}
+    {% if obj.transcription %}<div class="card"><h2>Transcription</h2><div class="prose">{{ obj.transcription }}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

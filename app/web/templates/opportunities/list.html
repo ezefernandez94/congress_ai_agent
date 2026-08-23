@@ -1,0 +1,9 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search, filter_enum, filter_relation with context %}
+{% block filters_form %}
+  {{ filter_search('Title, notes, next step…') }}
+  {{ filter_enum('stage', 'Stage', enums.OpportunityStage) }}
+  {{ filter_enum('opportunity_type', 'Type', enums.OpportunityType) }}
+  {{ filter_relation('person_id', 'Person', people) }}
+  {{ filter_relation('company_id', 'Company', companies, attr='name') }}
+{% endblock %}

@@ -106,6 +106,10 @@ Your Telegram bot is now live. Send it a message to confirm.
 | `TIMEZONE` | No | Conference timezone, e.g. `America/New_York` (default: `America/Los_Angeles`) |
 | `DIGEST_HOUR` | No | Hour to send the daily digest (default: `7`) |
 | `DIGEST_MINUTE` | No | Minute to send the daily digest (default: `30`) |
+| `WEB_SESSION_SECRET` | No† | Random string signing the web UI's session cookie. Falls back to a value derived from the bot token, so rotating the token signs everyone out |
+| `TELEGRAM_BOT_USERNAME` | No† | Your bot's username without the `@`. Required to render the web login widget |
+
+> † Required in production if you want to use the web UI. See [Web UI](#web-ui).
 
 > **Note:** `DATABASE_URL` in `.env` is ignored when running via Docker Compose — the compose file
 > overrides it to point to the `db` service. Your `.env` value is only used if you connect
@@ -134,6 +138,42 @@ docker compose restart app
 ```
 
 ---
+
+## Web UI
+
+The same service that runs the bot also serves a browser dashboard at `/` — no second deploy,
+no Node build step. It covers the whole data model: dashboard, full CRUD and filtering for
+people, companies, tasks, opportunities, interactions, meetings, notes and conferences, plus
+CSV export, bot-user administration and a chat page that talks to the same agent and shares
+the same conversation history as Telegram.
+
+### Development
+
+Nothing to configure. `http://localhost:8000/` signs you in automatically as the first owner
+in `bot_users`, because the Telegram Login Widget cannot run against `localhost`.
+
+If you land on the login page with "No owner is seeded", set `TELEGRAM_ALLOWED_USER_IDS`
+and restart so the seed runs.
+
+### Production
+
+Access uses the **same `bot_users` allowlist as the bot** — there is no separate web account
+and no password. People sign in with the Telegram Login Widget, and only accounts that are
+already active bot users get in. `/removeuser` revokes web access immediately, mid-session.
+
+Three things to set up:
+
+1. `WEB_SESSION_SECRET` — any long random string:
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+2. `TELEGRAM_BOT_USERNAME` — your bot's username, without the `@`.
+3. **Register the domain with BotFather.** Send `/setdomain` to
+   [@BotFather](https://t.me/BotFather), pick your bot, and give it the public host
+   (e.g. `your-app.up.railway.app`). The login widget silently refuses to render on any
+   domain that is not registered — this step is not optional.
+
+`/health` and `/webhook/{secret}` stay public; every other route requires a session.
 
 ## Useful Commands
 
@@ -256,7 +296,12 @@ app/
 ├── models/         # SQLAlchemy ORM models (Person, Company, Meeting, etc.)
 ├── repositories/   # Async DB access layer (no raw SQL in business logic)
 ├── schemas/        # Pydantic v2 schemas for all entities
-└── services/       # Business logic: enrichment, transcription, digest, follow-up
+├── services/       # Business logic: enrichment, transcription, digest, dashboard, follow-up
+└── web/            # Browser UI: Jinja2 templates, HTMX, Telegram-login auth
+    ├── crud.py     # Generates the standard list/create/edit/delete routes per entity
+    ├── routes/     # Per-entity config, dashboard, chat, users, one-off actions
+    ├── static/     # app.css and a vendored htmx.min.js — no CDN, no build step
+    └── templates/  # base layout, shared macros, one directory per entity
 
 alembic/            # Database migrations
 docker/             # Dockerfile support files (entrypoint, init.sql)

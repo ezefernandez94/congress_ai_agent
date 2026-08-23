@@ -1,0 +1,33 @@
+{#- Shared skeleton for every list page. Subclasses fill `filters_form` and
+    the `_rows.html` partial the HTMX swap targets. -#}
+{% extends "base.html" %}
+{% block title %}{{ config.title }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ config.title }}</h1>
+    <div class="sub">{{ page.total }} record{{ '' if page.total == 1 else 's' }}{% if filters %} matching{% endif %}</div>
+  </div>
+  <div>
+    <a class="btn" href="/{{ config.slug }}/export.csv{{ query_with(filters) }}">Export CSV</a>
+    <a class="btn primary" href="/{{ config.slug }}/new">New {{ config.singular | lower }}</a>
+  </div>
+</div>
+
+<div class="card flush">
+  <form class="filters" hx-get="/{{ config.slug }}" hx-target="#results"
+        hx-push-url="true" hx-indicator="#busy"
+        hx-trigger="change, keyup changed delay:400ms from:#q">
+    {% block filters_form %}{% endblock %}
+    <div class="field">
+      <a class="btn" href="/{{ config.slug }}">Reset</a>
+    </div>
+    <div class="field"><span class="spinner" id="busy">Filtering…</span></div>
+  </form>
+
+  <div id="results">
+    {% include config.slug ~ "/_rows.html" %}
+  </div>
+</div>
+{% endblock %}

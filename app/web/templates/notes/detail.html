@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Note{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Note</h1><div class="sub">{{ obj.created_at | fmt_datetime }} · {{ obj.content_type | label }}</div></div>
+  <div><a class="btn" href="/notes">Back</a><a class="btn primary" href="/notes/{{ obj.id }}/edit">Edit</a></div>
+</div>
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="props">
+      <dt>Person</dt><dd>{% if obj.person %}<a href="/people/{{ obj.person.id }}">{{ obj.person.full_name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Meeting</dt><dd>{% if obj.meeting %}<a href="/meetings/{{ obj.meeting.id }}">{{ obj.meeting.title }}</a>{% else %}—{% endif %}</dd>
+      <dt>Processed</dt><dd>{{ 'Yes' if obj.processed else 'No' }}</dd>
+    </dl>
+  </div>
+  <div>
+    <div class="card"><h2>Content</h2><div class="prose">{{ obj.raw_content }}</div></div>
+    {% if obj.transcription %}<div class="card"><h2>Transcription</h2><div class="prose">{{ obj.transcription }}</div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

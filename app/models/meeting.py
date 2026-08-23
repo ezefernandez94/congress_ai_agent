@@ -37,3 +37,5 @@ class Meeting(Base, TimestampMixin):
     followed_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     participants: Mapped[list["Person"]] = relationship("Person", secondary=meeting_participants, back_populates="meetings")  # noqa: F821
+    interactions: Mapped[list["Interaction"]] = relationship("Interaction", back_populates="meeting")  # noqa: F821
+    notes: Mapped[list["Note"]] = relationship("Note", back_populates="meeting")  # noqa: F821

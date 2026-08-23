@@ -1,0 +1,5 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search with context %}
+{% block filters_form %}
+  {{ filter_search('Name or location…') }}
+{% endblock %}

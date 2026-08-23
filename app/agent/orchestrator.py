@@ -370,6 +370,10 @@ class ToolExecutor:
 
 
 class ConferenceAgent:
+    # A model that keeps calling tools would otherwise loop forever. A web
+    # request holds a worker while it runs, so the loop needs a hard ceiling.
+    MAX_TOOL_ROUNDS = 12
+
     def __init__(self, db: AsyncSession):
         self.client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
         self.db = db
@@ -410,7 +414,7 @@ class ConferenceAgent:
 
         messages = message_history + [{"role": "user", "content": user_content}]
 
-        while True:
+        for _ in range(self.MAX_TOOL_ROUNDS):
             response = await self.client.messages.create(
                 model=settings.anthropic_model,
                 max_tokens=2048,
@@ -438,6 +442,12 @@ class ConferenceAgent:
                 continue
 
             break
+        else:
+            logger.warning("agent_tool_loop_exhausted", rounds=self.MAX_TOOL_ROUNDS)
+            return (
+                "I got stuck working through that one. The records I did save are "
+                "in place — try asking again, more specifically."
+            )
 
         return "Sorry, something went wrong. Please try again."
 

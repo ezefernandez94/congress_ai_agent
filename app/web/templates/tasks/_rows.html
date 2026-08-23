@@ -1,0 +1,32 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Task</th><th>Person</th><th>Type</th><th>Priority</th><th>Status</th><th>Due</th><th></th></tr></thead>
+  <tbody>
+    {% for t in rows %}
+    <tr>
+      <td><a class="name" href="/tasks/{{ t.id }}">{{ t.title }}</a>
+        {% if t.description %}<div style="color:var(--muted);font-size:12.5px">{{ t.description | truncate(70) }}</div>{% endif %}</td>
+      <td>{% if t.person %}<a href="/people/{{ t.person.id }}">{{ t.person.full_name }}</a>{% else %}—{% endif %}</td>
+      <td>{{ t.task_type | label }}</td>
+      <td><span class="badge {{ t.priority.value }}">{{ t.priority | label }}</span></td>
+      <td><span class="badge {{ t.status.value }}">{{ t.status | label }}</span></td>
+      <td>
+        {% if t.due_date %}
+          {% if t.due_date < today and t.status.value == 'pending' %}<span class="badge overdue">{{ t.due_date | fmt_date }}</span>
+          {% else %}{{ t.due_date | fmt_date }}{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td class="actions">
+        {% if t.status.value == 'pending' %}
+        <form class="inline-form" method="post" action="/tasks/{{ t.id }}/complete">
+          <button type="submit" class="btn small">Complete</button>
+        </form>
+        {% endif %}
+        <a class="btn small" href="/tasks/{{ t.id }}/edit">Edit</a>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="7"><div class="empty">No tasks match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

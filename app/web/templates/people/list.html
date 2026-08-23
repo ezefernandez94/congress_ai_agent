@@ -1,0 +1,12 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search, filter_enum, filter_relation, filter_choice with context %}
+
+{% block filters_form %}
+  {{ filter_search('Name, role, notes…') }}
+  {{ filter_enum('contact_type', 'Type', enums.ContactType) }}
+  {{ filter_enum('priority_tier', 'Tier', enums.PriorityTier) }}
+  {{ filter_enum('interest_level', 'Interest', enums.InterestLevel) }}
+  {{ filter_enum('follow_up_status', 'Follow-up', enums.FollowUpStatus) }}
+  {{ filter_relation('company_id', 'Company', companies, attr='name') }}
+  {{ filter_choice('never_contacted', 'Contacted', [('1', 'Never contacted')], blank='Any') }}
+{% endblock %}

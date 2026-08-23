@@ -24,6 +24,8 @@ class CompanyCreate(CompanyBase):
 class CompanyUpdate(BaseModel):
     name: str | None = None
     website: str | None = None
+    linkedin_url: str | None = None
+    crunchbase_url: str | None = None
     industry: str | None = None
     stage: str | None = None
     funding_total: int | None = None

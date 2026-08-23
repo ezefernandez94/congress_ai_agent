@@ -1,0 +1,13 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search with context %}
+{% block filters_form %}
+  {{ filter_search('Name, industry, summary…') }}
+  <div class="field">
+    <label for="f-industry">Industry</label>
+    <input type="text" id="f-industry" name="industry" value="{{ filters.get('industry', '') }}" placeholder="Exact match">
+  </div>
+  <div class="field">
+    <label for="f-stage">Stage</label>
+    <input type="text" id="f-stage" name="stage" value="{{ filters.get('stage', '') }}" placeholder="Exact match">
+  </div>
+{% endblock %}

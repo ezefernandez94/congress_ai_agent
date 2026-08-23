@@ -1,0 +1,30 @@
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Name</th><th>Company</th><th>Type</th><th>Tier</th>
+      <th>Interest</th><th>Follow-up</th><th>Last contact</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in rows %}
+    <tr>
+      <td>
+        <a class="name" href="/people/{{ p.id }}">{{ p.full_name }}</a>
+        {% if p.role %}<div class="sub" style="color:var(--muted);font-size:12.5px">{{ p.role }}</div>{% endif %}
+      </td>
+      <td>{% if p.company %}<a href="/companies/{{ p.company.id }}">{{ p.company.name }}</a>{% else %}—{% endif %}</td>
+      <td><span class="badge">{{ p.contact_type | label }}</span></td>
+      <td><span class="badge tier-{{ p.priority_tier.value }}">{{ p.priority_tier.value }}</span></td>
+      <td><span class="badge {{ p.interest_level.value }}">{{ p.interest_level | label }}</span></td>
+      <td><span class="badge {{ p.follow_up_status.value }}">{{ p.follow_up_status | label }}</span></td>
+      <td>{{ p.last_interaction_date | fmt_date }}</td>
+      <td class="actions"><a class="btn small" href="/people/{{ p.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8"><div class="empty">No contacts match these filters.</div></td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

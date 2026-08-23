@@ -1,0 +1,10 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import textarea_field, enum_field, relation_field, checkbox_field with context %}
+{% block fields %}
+  {{ relation_field('person_id', 'Person', people, blank='No person') }}
+  {{ relation_field('meeting_id', 'Meeting', meetings, attr='title', blank='No meeting') }}
+  {{ enum_field('content_type', 'Source', enums.NoteSource, required=true) }}
+  {{ checkbox_field('processed', 'Processed') }}
+  {{ textarea_field('raw_content', 'Content', rows=7) }}
+  {{ textarea_field('transcription', 'Transcription', rows=4) }}
+{% endblock %}

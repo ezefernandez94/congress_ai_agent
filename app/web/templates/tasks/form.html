@@ -1,0 +1,14 @@
+{% extends "_form_base.html" %}
+{% from "_macros.html" import text_field, textarea_field, enum_field, relation_field with context %}
+{% block fields %}
+  {{ text_field('title', 'Title', required=true, full=true) }}
+  {{ enum_field('task_type', 'Type', enums.TaskType, required=true) }}
+  {{ enum_field('priority', 'Priority', enums.TaskPriority, required=true) }}
+  {% if obj %}{{ enum_field('status', 'Status', enums.TaskStatus, required=true) }}{% endif %}
+  {{ text_field('due_date', 'Due date', type='date') }}
+  {{ relation_field('related_person_id', 'Person', people, blank='No person') }}
+  {{ relation_field('related_company_id', 'Company', companies, attr='name', blank='No company') }}
+  {{ text_field('created_by', 'Created by', hint='agent or user') }}
+  {{ textarea_field('description', 'Description', rows=4) }}
+  {{ textarea_field('draft_content', 'Draft content', rows=6, hint='Pre-written email or message, if any.') }}
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ obj.title }}</h1>
+    <div class="sub">{{ obj.task_type | label }} · created by {{ obj.created_by }}</div></div>
+  <div>
+    <a class="btn" href="/tasks">Back</a>
+    {% if obj.status.value == 'pending' %}
+    <form class="inline-form" method="post" action="/tasks/{{ obj.id }}/complete">
+      <button type="submit" class="btn">Mark complete</button>
+    </form>
+    {% endif %}
+    <a class="btn primary" href="/tasks/{{ obj.id }}/edit">Edit</a>
+  </div>
+</div>
+
+<div class="chips" style="margin-bottom:16px">
+  <span class="badge {{ obj.priority.value }}">{{ obj.priority | label }}</span>
+  <span class="badge {{ obj.status.value }}">{{ obj.status | label }}</span>
+  {% if obj.due_date %}<span class="badge {{ 'overdue' if obj.due_date < today and obj.status.value == 'pending' }}">Due {{ obj.due_date | fmt_date }}</span>{% endif %}
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="props">
+      <dt>Person</dt><dd>{% if obj.person %}<a href="/people/{{ obj.person.id }}">{{ obj.person.full_name }}</a>{% else %}—{% endif %}</dd>
+      <dt>Due</dt><dd>{{ obj.due_date | fmt_date }}</dd>
+      <dt>Completed</dt><dd>{{ obj.completed_at | fmt_datetime }}</dd>
+      <dt>Created</dt><dd>{{ obj.created_at | fmt_datetime }}</dd>
+    </dl>
+    {% if obj.description %}<h2 style="margin-top:18px">Description</h2><div class="prose">{{ obj.description }}</div>{% endif %}
+  </div>
+  {% if obj.draft_content %}
+  <div class="card"><h2>Draft</h2><div class="prose">{{ obj.draft_content }}</div></div>
+  {% endif %}
+</div>
+{% endblock %}

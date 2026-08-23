@@ -1,0 +1,27 @@
+{#- Shared skeleton for create/edit forms. -#}
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if obj else 'New' }} {{ config.singular | lower }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Edit' if obj else 'New' }} {{ config.singular | lower }}</h1>
+  <a class="btn" href="{{ ('/' ~ config.slug ~ '/' ~ obj.id) if (obj and config.has_detail) else ('/' ~ config.slug) }}">Cancel</a>
+</div>
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<form class="card" method="post"
+      action="/{{ config.slug }}{{ ('/' ~ obj.id) if obj else '' }}">
+  <div class="form-grid">
+    {% block fields %}{% endblock %}
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn primary">{{ 'Save changes' if obj else 'Create' }}</button>
+    <span class="spacer"></span>
+    {% if obj %}
+      {% from "_macros.html" import delete_button with context %}
+      {{ delete_button(config.slug, obj.id, config.singular | lower, config.delete_warning) }}
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

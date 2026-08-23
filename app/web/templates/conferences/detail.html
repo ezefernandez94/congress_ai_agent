@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ obj.name }}</h1>
+    <div class="sub">{{ obj.location or 'Location unknown' }} · {{ obj.start_date | fmt_date }} → {{ obj.end_date | fmt_date }}</div></div>
+  <div>
+    <a class="btn" href="/conferences">Back</a>
+    {% if not obj.is_active %}
+    <form class="inline-form" method="post" action="/conferences/{{ obj.id }}/activate">
+      <button type="submit" class="btn">Make active</button>
+    </form>
+    {% endif %}
+    <a class="btn primary" href="/conferences/{{ obj.id }}/edit">Edit</a>
+  </div>
+</div>
+
+<div class="chips" style="margin-bottom:16px">
+  {% if obj.is_active %}<span class="badge completed">Active</span>{% endif %}
+  {% if obj.schedule_imported %}<span class="badge">Schedule imported</span>{% endif %}
+  {% if obj.summary_generated %}<span class="badge">Summary generated</span>{% endif %}
+</div>
+
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Goals</h2>
+    <ul class="timeline">{% for g in obj.goals or [] %}<li>{{ g }}</li>{% else %}<li class="when">None set.</li>{% endfor %}</ul>
+    <h2 style="margin-top:18px">Target contact types</h2>
+    <ul class="timeline">{% for t in obj.target_contact_types or [] %}<li>{{ t | label }}</li>{% else %}<li class="when">None set.</li>{% endfor %}</ul>
+  </div>
+  {% if obj.post_conference_report %}
+  <div class="card"><h2>Post-conference report</h2><div class="prose">{{ obj.post_conference_report }}</div></div>
+  {% endif %}
+</div>
+{% endblock %}

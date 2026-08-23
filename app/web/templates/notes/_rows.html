@@ -1,0 +1,18 @@
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Created</th><th>Person</th><th>Content</th><th>Source</th><th>Processed</th><th></th></tr></thead>
+  <tbody>
+    {% for n in rows %}
+    <tr>
+      <td>{{ n.created_at | fmt_datetime }}</td>
+      <td>{% if n.person %}<a href="/people/{{ n.person.id }}">{{ n.person.full_name }}</a>{% else %}—{% endif %}</td>
+      <td><a href="/notes/{{ n.id }}">{{ n.raw_content | truncate(90) }}</a></td>
+      <td>{{ n.content_type | label }}</td>
+      <td>{% if n.processed %}<span class="badge completed">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
+      <td class="actions"><a class="btn small" href="/notes/{{ n.id }}/edit">Edit</a></td>
+    </tr>
+    {% else %}<tr><td colspan="6"><div class="empty">No notes match these filters.</div></td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "_partials/pagination.html" %}

@@ -1,0 +1,12 @@
+{% extends "_list_base.html" %}
+{% from "_macros.html" import filter_search, filter_enum, filter_relation, filter_choice, filter_date with context %}
+{% block filters_form %}
+  {{ filter_search('Title or description…') }}
+  {{ filter_enum('status', 'Status', enums.TaskStatus) }}
+  {{ filter_enum('priority', 'Priority', enums.TaskPriority) }}
+  {{ filter_enum('task_type', 'Type', enums.TaskType) }}
+  {{ filter_relation('related_person_id', 'Person', people) }}
+  {{ filter_choice('overdue', 'Overdue', [('1', 'Overdue only')]) }}
+  {{ filter_date('due_from', 'Due after') }}
+  {{ filter_date('due_to', 'Due before') }}
+{% endblock %}

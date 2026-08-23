@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -37,5 +37,5 @@ class ConferenceRead(ConferenceBase):
     schedule_imported: bool
     summary_generated: bool
     post_conference_report: str | None = None
-    created_at: date
-    updated_at: date
+    created_at: datetime
+    updated_at: datetime

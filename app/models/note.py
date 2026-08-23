@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, NoteSource, TimestampMixin
 
@@ -19,3 +19,6 @@ class Note(Base, TimestampMixin):
     transcription: Mapped[str | None] = mapped_column(Text, nullable=True)
     processed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    person: Mapped["Person | None"] = relationship("Person", back_populates="note_records")  # noqa: F821
+    meeting: Mapped["Meeting | None"] = relationship("Meeting", back_populates="notes")  # noqa: F821

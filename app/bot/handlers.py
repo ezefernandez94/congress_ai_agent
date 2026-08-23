@@ -1,15 +1,13 @@
-from sqlalchemy import select
-from telegram import Update
-from telegram.ext import ContextTypes
 import base64
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from app.agent.orchestrator import ConferenceAgent
 from app.bot.auth import authorize
-from app.core.database import AsyncSessionLocal, session_scope
+from app.core.database import session_scope
 from app.core.logging import logger
-from app.models.conversation import ConversationMessage
+from app.services.conversation import load_history, save_message
 from app.services.transcription import transcription_service
 
 
@@ -24,21 +22,10 @@ def is_complex_request(text: str) -> bool:
     return any(kw in lower for kw in COMPLEX_KEYWORDS) or len(text) > 200
 
 
-async def get_conversation_history(user_id: str, limit: int = 20) -> list[dict]:
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(ConversationMessage)
-            .where(ConversationMessage.user_id == user_id)
-            .order_by(ConversationMessage.created_at.desc())
-            .limit(limit)
-        )
-        messages = list(result.scalars().all())
-    return [{"role": m.role, "content": m.content} for m in reversed(messages)]
-
-
-async def save_message_to_history(user_id: str, role: str, content: str) -> None:
-    async with session_scope() as db:
-        db.add(ConversationMessage(user_id=user_id, role=role, content=content))
+# Thin aliases kept so the handlers below read unchanged; the implementation
+# moved to app/services/conversation.py so the web chat shares one history.
+get_conversation_history = load_history
+save_message_to_history = save_message
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -93,6 +80,7 @@ async def handle_voice_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await update.message.reply_text(f"_Heard: {transcript}_", parse_mode="Markdown")
     await update.message.reply_text(response, parse_mode="Markdown")
+
 
 async def handle_photo_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if await authorize(update) is None:
