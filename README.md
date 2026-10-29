@@ -221,9 +221,16 @@ asyncio.run(send_daily_digest())
 
 ### Run tests
 
+Tests run on the host against the compose database (published on `localhost:5434`). The test database
+`conference_bot_test` and its `vector` extension are created on the first run.
+
 ```bash
-docker compose run --rm app pytest tests/ -v
+docker compose up -d db
+PYTHONDONTWRITEBYTECODE=1 uv run pytest
 ```
+
+Set `TEST_DATABASE_URL` to use another database. Don't use `docker compose run app pytest`: the image has
+no test dependencies, and its entrypoint ignores the command and starts the bot.
 
 ---
 

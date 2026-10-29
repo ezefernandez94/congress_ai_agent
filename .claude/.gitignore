@@ -1,0 +1,3 @@
+# Local state of the docs_guard Stop hook (reminder de-duplication)
+.docs_guard_state.json
+settings.local.json
