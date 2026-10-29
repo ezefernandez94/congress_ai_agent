@@ -56,3 +56,15 @@ logs/
 # Temporary files
 *.tmp
 *.bak
+
+# Claude Code workflow state (see "Development workflow" in CLAUDE.md)
+HANDOFF.md
+.claude/handoffs/
+.claude/plans/
+.claude/state/
+
+# Data dumps in the repo root can hold real contacts: never commit them
+/*.csv
+/*.sql
+/*.odt
+/*.txt

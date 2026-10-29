@@ -6,6 +6,146 @@ A mobile-first AI networking assistant for conference use, accessible via Telegr
 
 Single-user, single-conference focus for MVP. Built by one senior Python developer.
 
+> **Where this file is out of date.** Everything from "Project Structure" down is the original build spec.
+> The code has moved on: access is a `bot_users` allowlist with owners (not one `TELEGRAM_ALLOWED_USER_ID`),
+> there is a browser UI in `app/web/`, badge photos are read, and the default model is set by
+> `ANTHROPIC_MODEL` (Haiku 4.5 today). The sections between here and "Project Structure", plus `docs/`, are
+> authoritative. If the spec, README, docs and code disagree, tell Eze.
+
+## Commands
+
+Everything runs either in Docker (`docker compose ...`, see README) or locally with `uv`. Locally, prefix
+Python commands with `PYTHONDONTWRITEBYTECODE=1`: `__pycache__/` folders created by the container are
+owned by root.
+
+| What | Command |
+|---|---|
+| Import smoke test (catches syntax and import errors in the whole app) | `PYTHONDONTWRITEBYTECODE=1 uv run python -c "import app.api.main"` |
+| Lint the files you changed | `uvx ruff check <changed .py files>` |
+| Tests, all / one file / one test | `uv run pytest` · `uv run pytest tests/test_agent/test_x.py` · `... ::test_ucNNN_x` |
+| Database for local runs | `docker compose up -d db` (Postgres 16 + pgvector on `localhost:5434`) |
+| Models and migrations in sync | `docker compose run --rm app alembic check` |
+| New migration after a model change | `docker compose run --rm app alembic revision --autogenerate -m "<change>"` |
+| Docs consistency | `python3 .claude/hooks/docs_guard.py check` |
+| Guard self-test | `python3 .claude/hooks/test_guard.py` |
+| Run the stack | `docker compose up` (bot in polling mode, web UI on `http://localhost:8000/`) |
+
+## Development workflow
+
+Eze is the only developer and reviews every PR on GitHub (`ezefernandez94/congress_ai_agent`). Work is
+tracked in Linear: project `congress-bot-76da1c024bec`, team `EZE` (issue IDs `EZE-N`); milestones are
+phases, issues are tasks. Session loop:
+`/start-session` → `/develop <EZE-N | milestone>` (plan, then stop for approval) → `/continue` →
+`/commit` (push + PR) → Eze approves → `/post-approve <pr>` → `/end-session`. `/status` any time.
+Step-by-step behavior lives in `.claude/commands/`; the rules below always apply.
+
+- **Branches:** `<type>/<EZE-N>-<short-slug>` (feat | fix | chore | refactor | test | docs), from an
+  up-to-date `main`. One branch/PR per issue or small group of related issues. Work without a Linear
+  issue (`/develop "<description>"`) is allowed: branch `<type>/<short-slug>`, no ID in commits, PR
+  title `<type>: ...`, no `Refs`.
+- **Plans:** `.claude/plans/<branch, / → ->.md` (gitignored), checkboxes ticked as steps finish. No code
+  before Eze approves the plan; nothing outside it without asking.
+- **PRs:** into `main`, title `EZE-N: ...`, body uses `Refs EZE-N`, never Closes/Fixes/Resolves/Completes/
+  Implements. Merge with **squash** (`gh pr merge <n> --squash`), only in `/post-approve`, never deleting
+  branches. Update a branch by merging `main` into it; never rebase a branch with an open PR. There is no
+  branch protection and no CI, so the local guardrails are the only ones.
+- **Linear is read-only** except in `/post-approve`, after Eze names the issues to mark Done.
+- **Commits:** `DURATION="HH:MM" git commit -m '<message>'`, message
+  `<type>(<scope>): <EZE-N> <summary> [claude HH:MM]`, optional body, `Co-Authored-By` trailer.
+  DURATION = human-developer estimate for the diff; `[claude HH:MM]` = Claude's active time from
+  `python3 .claude/hooks/timer.py show` (UserPromptSubmit/Stop hooks; state in `.claude/state/`).
+- **Checks** (`/commit`: the parts touched; `/post-approve`: everything): the import smoke test;
+  `uvx ruff check` on the changed `.py` files (the repo has older violations, so lint only what you touch
+  and fix what you find there); `alembic check` when `app/models/` changed (and commit the migration);
+  `uv run pytest` for what changed (full suite in `/post-approve`); `python3 .claude/hooks/docs_guard.py check`.
+- **Tests:** pytest with `asyncio_mode = "auto"`, against a real PostgreSQL with pgvector (the
+  `conference_bot_test` database in `tests/conftest.py`). Mock only external services: Anthropic, OpenAI
+  (Whisper), Telegram, Proxycurl, Tavily. Never call a paid API from a test. Test names follow
+  `test_ucNNN_<scenario>` (see "Documentation workflow").
+- **Definition of done:** plan steps ticked, acceptance criteria met, checks green, docs updated (REQ/ADR/UC
+  per "Documentation workflow"), PR open with test results.
+- **Failures:** if a check fails or the commit-msg hook rejects a commit, stop and report. No workarounds.
+
+**Clockify commit-msg hook:** not installed in this repo yet (Eze will add it). DURATION is still mandatory
+on every commit and merge commit, and the guard enforces it. Once the hook exists (`.git/hooks/commit-msg`,
+not versioned), never edit it, and never read or edit `~/.clockify_env`.
+
+**Guardrails** are enforced by `.claude/hooks/guard.py` (PreToolUse; self-test `python3
+.claude/hooks/test_guard.py`) plus deny/ask rules in `.claude/settings.json`. Denied: commit on main,
+commit without DURATION, `--no-verify`/`-n`, `core.hooksPath`, any force push, push to main, `add -A`/`.`,
+`commit -a`, staged secrets, approving PRs, merging outside `/post-approve`, merge without `--squash` or
+with `--delete-branch`, closing keywords in PRs, a PR title without the branch's `EZE-N` (or without
+`<type>:` when there is no issue), edits to git hooks or `~/.clockify_env`, reading or editing `.env`,
+Linear status changes outside `/post-approve`. Ask first: `gh pr merge`, branch deletion, `reset --hard`,
+`clean -f`, `rm -rf`, rebase, `--amend`, other Linear writes, edits to the guard files. Scope and "stop on
+failure" are rules, not enforced.
+
+## Invariants worth preserving
+
+Reconstructed from the code on 2026-10-28; tell Eze if one looks wrong rather than silently breaking it.
+
+- **Access is the `bot_users` table, nothing else** (ADR-006). Every Telegram handler calls
+  `app/bot/auth.authorize` first (only `/whoami` is open). Every web route depends on `require_web_user`
+  except `/health`, `/webhook/{secret}`, `/login`, `/auth/telegram`, `/logout` and `/static`. Both fail
+  closed on a database error.
+- `TELEGRAM_ALLOWED_USER_IDS` only **adds** owners at startup; removing an ID from the env revokes nothing.
+  Only owners add or remove users; an owner cannot be removed with `/removeuser`, and nobody can remove
+  themselves.
+- The web development login bypass runs only when `APP_ENV != production` (ADR-008). Never widen it.
+- Agent tools return a dict with `success` (and `error` on failure). `ToolExecutor.execute` commits after
+  each successful tool and rolls back a failed one. Repositories `flush`, they never `commit`.
+- The agent loop is bounded (`ConferenceAgent.MAX_TOOL_ROUNDS`).
+- When a name matches several contacts, return all matches to the agent and let it ask; never silently
+  pick one (REQ-006; several tools still break this today, see that entry).
+- Proxycurl (paid, about $0.10 per call) runs only when the user asks for enrichment or gives a LinkedIn URL;
+  never on contact creation. Follow-up drafts are never sent automatically.
+- Conversation history is keyed by Telegram user ID and shared by Telegram and the web chat; the agent sees
+  the last 20 messages.
+- Logs never contain the bot token or the webhook secret (`_redact` in `app/api/main.py`).
+- The web UI has no build step and loads nothing from a CDN: Jinja2 templates plus a vendored
+  `htmx.min.js` (ADR-007).
+- Every model change ships with its Alembic migration in `alembic/versions/`.
+- Telegram replies use `parse_mode="Markdown"`, so escape `_` and `*` in literal text (for example
+  `/digest\_on`).
+
+## Documentation workflow (`docs/`)
+
+Three files in `docs/` are the project's written memory. Read them **on demand**; they are deliberately not
+imported here, so they do not cost context in every session.
+
+| File | Holds | IDs |
+|---|---|---|
+| `docs/requirements.md` | What the product must do, plus constraints | `REQ-NNN` |
+| `docs/architecture.md` | Decisions and the reasons for them (ADR style) | `ADR-NNN` |
+| `docs/use-cases.md` | What a person can do, step by step; the source for tests | `UC-NNN` |
+
+Rules:
+
+1. **New feature or behavior change: run `/new-requirement` before writing code.** It compares the request with
+   `docs/requirements.md`. If it conflicts with, or duplicates, an `active` or `planned` requirement, **stop,
+   tell the user what conflicts (IDs and a one-line quote of each) and wait for their decision.** Never resolve
+   a conflict silently.
+2. If the user overrides an old requirement, mark it `superseded` and link both entries. Never delete entries.
+3. **Choosing a library, data model, external API or pattern, or reversing an earlier choice: run
+   `/record-decision`.** A new dependency needs the user's approval and an ADR before it is installed. Only
+   the user marks a decision `accepted`.
+4. **User-visible behavior added, changed or removed: run `/update-use-cases`.** Tests come from use cases and are
+   named `test_ucNNN_<scenario>`.
+5. **Before reporting a task as done**, update the docs, or say in your final message why nothing needed to
+   change. A Stop hook checks this and validates the docs.
+6. Entries marked `backfill` or `claude-suggested` are not confirmed by the user. When one matters for the task,
+   ask instead of assuming.
+
+## Conventions
+
+- Code, comments, docs and user-facing bot/web strings are in English. Commit subjects follow the commit
+  format above (older commits are partly in Spanish; don't copy that).
+- Comments explain *why* (see `ToolExecutor.execute`, `require_web_user`); match that density.
+- structlog events are `snake_case` names with keyword fields: `logger.info("seed_users_ready", count=n)`.
+- Line length 100 (`[tool.ruff]` in `pyproject.toml`).
+- Never commit the data dumps in the repo root (`*.csv`, `*.sql`, `*.odt`, logs): they can hold real
+  contacts.
+
 ---
 
 ## Project Structure
