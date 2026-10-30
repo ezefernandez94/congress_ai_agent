@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 import asyncpg
 import pytest
@@ -57,6 +58,26 @@ async def db_session():
     async with TestSessionLocal() as session:
         yield session
         await session.rollback()
+
+
+@pytest.fixture
+def use_test_session(db_session, monkeypatch):
+    """Point code that opens its own session_scope() at the test's session.
+
+    The real session_scope commits to the app database; here every scope reuses db_session,
+    so the test sees the writes and they are rolled back when it ends.
+    """
+
+    @asynccontextmanager
+    async def scope():
+        yield db_session
+        await db_session.flush()
+
+    def patch(*modules):
+        for module in modules:
+            monkeypatch.setattr(module, "session_scope", scope)
+
+    return patch
 
 
 @pytest.fixture

@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -113,3 +112,8 @@ class InteractionType(str, Enum):
 class NoteSource(str, Enum):
     voice = "voice"
     text = "text"
+
+
+class WorkspaceRole(str, Enum):
+    admin = "admin"
+    member = "member"

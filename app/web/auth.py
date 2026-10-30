@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import logger
+from app.core.tenancy import resolve_caller
 from app.models.user import BotUser
 from app.repositories.user_repo import UserRepository
 
@@ -80,6 +81,9 @@ async def require_web_user(
 ) -> BotUser:
     """Resolve the browser session to an active BotUser, or raise NotLoggedIn.
 
+    The workspace comes from resolve_caller, the same function the bot uses, and
+    is kept on request.state.caller for the routes that need it.
+
     The user is re-read from the database on every request rather than trusted
     from the cookie, so revoking someone with /removeuser in Telegram also
     locks them out of the web UI immediately.
@@ -90,30 +94,33 @@ async def require_web_user(
     # driven by APP_ENV, so it cannot fire on Railway.
     if not settings.is_production:
         owner = await UserRepository(db).first_owner()
-        if owner is None:
+        caller = await resolve_caller(db, owner.telegram_user_id) if owner else None
+        if caller is None:
             raise NotLoggedIn("no_owner_seeded")
-        request.state.web_user = owner
-        return owner
+        request.state.caller = caller
+        request.state.web_user = caller.user
+        return caller.user
 
     user_id = request.session.get(SESSION_KEY)
     if not user_id:
         raise NotLoggedIn()
 
     try:
-        user = await UserRepository(db).get_by_telegram_id(int(user_id))
+        caller = await resolve_caller(db, int(user_id))
     except Exception as e:
         # Fail closed, matching app/bot/auth.py — a database problem must not
         # become an open door.
         logger.error("web_authorize_db_failed", user_id=user_id, error=str(e))
         raise NotLoggedIn("lookup_failed") from e
 
-    if user is None or not user.is_active:
-        logger.info("web_unauthorized", user_id=user_id, known=user is not None)
+    if caller is None:
+        logger.info("web_unauthorized", user_id=user_id)
         request.session.pop(SESSION_KEY, None)
         raise NotLoggedIn("revoked")
 
-    request.state.web_user = user
-    return user
+    request.state.caller = caller
+    request.state.web_user = caller.user
+    return caller.user
 
 
 async def require_owner(user: BotUser = Depends(require_web_user)) -> BotUser:

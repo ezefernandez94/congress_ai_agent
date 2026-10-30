@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.logging import logger
 from app.models.user import BotUser
 from app.repositories.user_repo import UserRepository
+from app.repositories.workspace_repo import WorkspaceRepository
 from app.web.auth import require_owner
 from app.web.rendering import redirect, render
 
@@ -39,7 +40,17 @@ async def add(
     except ValueError:
         return redirect(f"/users?error={quote('Telegram user ID must be a number')}")
 
-    await UserRepository(db).ensure_user(telegram_user_id, display_name=display_name)
+    workspace_id = request.state.caller.workspace_id
+    workspaces = WorkspaceRepository(db)
+    existing = await UserRepository(db).get_by_telegram_id(telegram_user_id)
+    membership = await workspaces.get_membership(existing.id) if existing else None
+    if membership and membership.workspace_id != workspace_id:
+        # Same rule as /adduser: a user belongs to exactly one workspace (REQ-024).
+        return redirect(f"/users?error={quote('That user belongs to another workspace')}")
+
+    added = await UserRepository(db).ensure_user(telegram_user_id, display_name=display_name)
+    if membership is None:
+        await workspaces.add_member(workspace_id, added.id)
     logger.info("web_user_added", by=user.telegram_user_id, user_id=telegram_user_id)
     return redirect(f"/users?ok={quote('User added')}")
 

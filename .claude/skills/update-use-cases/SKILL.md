@@ -1,6 +1,6 @@
 ---
 name: update-use-cases
-description: Add or update use cases in docs/use-cases.md after user-visible behavior is added, changed or removed, and derive tests from them. Use whenever a feature ships or changes what a person can do in the app, whenever the user asks for tests, test coverage or "what can a user do", and when finishing any task that touched Telegram commands or handlers, agent tools, web pages, endpoints, scheduled jobs or scripts.
+description: Add or update use cases in docs/use-cases.md and the user guide in docs/USE_GUIDE.md after user-visible behavior is added, changed or removed, and derive tests from them. Use whenever a feature ships or changes what a person can do in the app, whenever the user asks for tests, test coverage or "what can a user do", and when finishing any task that touched Telegram commands or handlers, agent tools, web pages, endpoints, scheduled jobs or scripts.
 ---
 
 # Update use cases
@@ -46,8 +46,22 @@ Write tests when the user asks for them, or when behavior changed and no test co
 5. Put the passing tests in the entry's `Tests:` field as pytest node IDs
    (`tests/test_agent/test_tools.py::test_uc006_...`), then set the status.
 
-## 5. Finish
+## 5. Update the use guide
+
+`docs/USE_GUIDE.md` is for the people using the product, organized by task ("Adding a user", "The morning
+digest"), not by ID. For every use case you added, changed or deprecated:
+
+1. Find the section for that task, or add one (and its line in **Contents**) if it's a new task.
+2. Describe it as the user lives it: the command, button or message, each option, what happens, and the
+   exact replies, including errors and refusals. A table of situation → what happens → reply works well
+   when there are several outcomes.
+3. Copy reply texts from the code, not from memory, and never describe behavior that isn't built
+   (`planned` use cases stay out of the guide).
+4. Removed behavior: delete it from the guide (the use case keeps the history).
+5. Keep the **Command reference** table in sync with the commands registered in `app/bot/router.py`.
+
+## 6. Finish
 
 1. Run `python3 .claude/hooks/docs_guard.py check` and fix what it reports.
-2. Tell the user: use cases added, changed or deprecated; tests written and their result; any behavior that
-   has no requirement.
+2. Tell the user: use cases added, changed or deprecated; guide sections touched; tests written and their
+   result; any behavior that has no requirement.
