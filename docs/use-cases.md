@@ -184,15 +184,17 @@ Alternate: an owner toggles anyone's digest from the web users page.
 ### UC-012 — Add or remove a user
 - Status: unverified
 - Actor: Owner
-- Requirements: REQ-015
-- Tests: none yet
+- Requirements: REQ-015, REQ-024
+- Tests: tests/test_bot/test_router_users.py::test_uc012_adduser_joins_adders_workspace, tests/test_bot/test_router_users.py::test_uc012_adduser_refuses_user_in_other_workspace, tests/test_bot/test_router_users.py::test_uc012_adduser_reenables_revoked_member, tests/test_bot/test_auth.py::test_uc012_authorize_returns_caller, tests/test_bot/test_auth.py::test_uc012_authorize_without_membership_denies, tests/test_bot/test_auth.py::test_uc012_authorize_db_error_denies, tests/test_bot/test_auth.py::test_uc012_seeded_owner_becomes_admin_of_default, tests/test_bot/test_auth.py::test_uc012_seeding_keeps_existing_membership, tests/test_core/test_tenancy.py::test_uc012_member_resolves_to_workspace, tests/test_core/test_tenancy.py::test_uc012_user_without_membership_denied, tests/test_core/test_tenancy.py::test_uc012_unknown_user_denied, tests/test_core/test_tenancy.py::test_uc012_inactive_member_denied, tests/test_web/test_auth.py::test_uc012_web_member_gets_caller, tests/test_web/test_auth.py::test_uc012_web_user_without_membership_redirected_to_login, tests/test_web/test_auth.py::test_uc012_web_db_error_denies, tests/test_web/test_auth.py::test_uc012_web_add_joins_adders_workspace, tests/test_web/test_auth.py::test_uc012_web_add_refuses_user_in_other_workspace (removing a user is still untested)
 
-1. The owner sends `/adduser <telegram id> [name]`.
-2. The new person can use the bot (a revoked user is re-enabled). The bot tells them to send /start.
+1. The owner sends `/adduser <telegram id> [name]` (or adds them on the web Users page).
+2. The new person joins the owner's workspace and can use the bot (a revoked user is re-enabled). The bot
+   tells them to send /start.
 3. Later the owner sends `/removeuser <telegram id>`; that person is ignored from then on, in Telegram and the web.
 
 Alternate: a non-owner → "Only an owner can add users." / "...remove users.". Bad ID → "not a valid Telegram ID".
-Already active → "That user already has access." Removing yourself → refused. Removing an owner → refused,
+Already active → "That user already has access." Someone in another workspace → "That user belongs to
+another workspace." A user with no workspace is ignored like an unknown one. Removing yourself → refused. Removing an owner → refused,
 with a hint to remove them from the env first. Unknown ID → "No such user."
 
 ### UC-013 — Find my Telegram ID
@@ -210,7 +212,8 @@ with a hint to remove them from the env first. Unknown ID → "No such user."
 - Requirements: REQ-014
 - Tests: none yet
 
-1. Someone not in `bot_users`, or revoked, sends any message or command other than `/whoami`.
+1. Someone not in `bot_users`, revoked, or without a workspace sends any message or command other than
+   `/whoami`.
 2. The bot does not answer and logs `unauthorized_message`.
 
 Alternate: the database is unreachable → the message is also ignored (fail closed).

@@ -1,12 +1,11 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from telegram.ext import MessageHandler, filters
 
-from app.bot.handlers import handle_photo_message
-from app.bot.handlers import handle_text_message, handle_voice_message
 from app.bot.auth import authorize
+from app.bot.handlers import handle_photo_message, handle_text_message, handle_voice_message
 from app.core.database import AsyncSessionLocal, session_scope
 from app.repositories.user_repo import UserRepository
+from app.repositories.workspace_repo import WorkspaceRepository
 
 
 async def start_command(update: Update, context) -> None:
@@ -102,11 +101,11 @@ async def digest_off_command(update: Update, context) -> None:
 
 
 async def _set_own_digest(update: Update, enabled: bool) -> None:
-    user = await authorize(update)
-    if user is None:
+    caller = await authorize(update)
+    if caller is None:
         return
     async with session_scope() as db:
-        await UserRepository(db).set_digest_preference(user.telegram_user_id, enabled)
+        await UserRepository(db).set_digest_preference(caller.user.telegram_user_id, enabled)
     await update.message.reply_text(
         "✅ You'll get the morning digest." if enabled else "🔕 Morning digest turned off."
     )
@@ -133,10 +132,10 @@ async def users_command(update: Update, context) -> None:
 
 
 async def adduser_command(update: Update, context) -> None:
-    actor = await authorize(update)
-    if actor is None:
+    caller = await authorize(update)
+    if caller is None:
         return
-    if not actor.is_owner:
+    if not caller.user.is_owner:
         await update.message.reply_text("Only an owner can add users.")
         return
 
@@ -159,14 +158,24 @@ async def adduser_command(update: Update, context) -> None:
 
     async with session_scope() as db:
         repo = UserRepository(db)
+        workspaces = WorkspaceRepository(db)
         existing = await repo.get_by_telegram_id(new_id)
-        if existing and existing.is_active:
+        membership = await workspaces.get_membership(existing.id) if existing else None
+        if membership and membership.workspace_id != caller.workspace_id:
+            # A user belongs to exactly one workspace (REQ-024); moving people between
+            # organizations is not something an owner of one of them can do.
+            await update.message.reply_text("That user belongs to another workspace.")
+            return
+        if existing and existing.is_active and membership:
             await update.message.reply_text("That user already has access.")
             return
         if existing:
             await repo.set_active(new_id, True)          # re-enable a revoked user
+            user = existing
         else:
-            await repo.ensure_user(new_id, display_name=display_name)
+            user = await repo.ensure_user(new_id, display_name=display_name)
+        if membership is None:
+            await workspaces.add_member(caller.workspace_id, user.id)
 
     await update.message.reply_text(
         f"✅ `{new_id}` can now use the bot. They should send /start.", parse_mode="Markdown"
@@ -174,10 +183,10 @@ async def adduser_command(update: Update, context) -> None:
 
 
 async def removeuser_command(update: Update, context) -> None:
-    actor = await authorize(update)
-    if actor is None:
+    caller = await authorize(update)
+    if caller is None:
         return
-    if not actor.is_owner:
+    if not caller.user.is_owner:
         await update.message.reply_text("Only an owner can remove users.")
         return
 
@@ -192,7 +201,7 @@ async def removeuser_command(update: Update, context) -> None:
         await update.message.reply_text(f"`{args[0]}` is not a valid Telegram ID.", parse_mode="Markdown")
         return
 
-    if target_id == actor.telegram_user_id:
+    if target_id == caller.user.telegram_user_id:
         await update.message.reply_text("You can't revoke your own access.")
         return
 

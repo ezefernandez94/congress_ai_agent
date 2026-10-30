@@ -24,8 +24,8 @@ owned by root.
 | Lint the files you changed | `uvx ruff check <changed .py files>` |
 | Tests, all / one file / one test | `uv run pytest` · `uv run pytest tests/test_agent/test_x.py` · `... ::test_ucNNN_x` |
 | Database for local runs | `docker compose up -d db` (Postgres 16 + pgvector on `localhost:5434`) |
-| Models and migrations in sync | `docker compose run --rm app alembic check` |
-| New migration after a model change | `docker compose run --rm app alembic revision --autogenerate -m "<change>"` |
+| Models and migrations in sync | `docker compose run --rm --entrypoint alembic app check` (the default entrypoint ignores arguments and starts the bot) |
+| New migration after a model change | `docker compose run --rm --entrypoint alembic app revision --autogenerate -m "<change>"` |
 | Docs consistency | `python3 .claude/hooks/docs_guard.py check` |
 | Guard self-test | `python3 .claude/hooks/test_guard.py` |
 | Run the stack | `docker compose up` (bot in polling mode, web UI on `http://localhost:8000/`) |
@@ -84,8 +84,9 @@ failure" are rules, not enforced.
 
 Reconstructed from the code on 2026-10-28; tell Eze if one looks wrong rather than silently breaking it.
 
-- **Access is the `bot_users` table, nothing else** (ADR-006). Every Telegram handler calls
-  `app/bot/auth.authorize` first (only `/whoami` is open). Every web route depends on `require_web_user`
+- **Access is the `bot_users` table plus a workspace membership, nothing else** (ADR-006, ADR-013). The
+  caller's workspace is decided only in `app/core/tenancy.resolve_caller` (ADR-014). Every Telegram
+  handler calls `app/bot/auth.authorize` first (only `/whoami` is open). Every web route depends on `require_web_user`
   except `/health`, `/webhook/{secret}`, `/login`, `/auth/telegram`, `/logout` and `/static`. Both fail
   closed on a database error.
 - `TELEGRAM_ALLOWED_USER_IDS` only **adds** owners at startup; removing an ID from the env revokes nothing.
@@ -118,6 +119,7 @@ imported here, so they do not cost context in every session.
 | `docs/requirements.md` | What the product must do, plus constraints | `REQ-NNN` |
 | `docs/architecture.md` | Decisions and the reasons for them (ADR style) | `ADR-NNN` |
 | `docs/use-cases.md` | What a person can do, step by step; the source for tests | `UC-NNN` |
+| `docs/USE_GUIDE.md` | The guide for people using the product, by task ("Adding a user"): steps, options, every reply | none |
 
 Rules:
 
@@ -129,7 +131,8 @@ Rules:
 3. **Choosing a library, data model, external API or pattern, or reversing an earlier choice: run
    `/record-decision`.** A new dependency needs the user's approval and an ADR before it is installed. Only
    the user marks a decision `accepted`.
-4. **User-visible behavior added, changed or removed: run `/update-use-cases`.** Tests come from use cases and are
+4. **User-visible behavior added, changed or removed: run `/update-use-cases`.** It updates both
+   `docs/use-cases.md` and the matching section of `docs/USE_GUIDE.md`. Tests come from use cases and are
    named `test_ucNNN_<scenario>`.
 5. **Before reporting a task as done**, update the docs, or say in your final message why nothing needed to
    change. A Stop hook checks this and validates the docs.
