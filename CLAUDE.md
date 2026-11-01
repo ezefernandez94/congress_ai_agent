@@ -106,6 +106,8 @@ Reconstructed from the code on 2026-10-28; tell Eze if one looks wrong rather th
 - The web UI has no build step and loads nothing from a CDN: Jinja2 templates plus a vendored
   `htmx.min.js` (ADR-007).
 - Every model change ships with its Alembic migration in `alembic/versions/`.
+- Domain tables are read and written only through ORM models on a workspace-scoped session; no `text()`
+  SQL on them (ADR-018). Open sessions with `caller_session`, `get_scoped_db` or `workspace_session`.
 - Telegram replies use `parse_mode="Markdown"`, so escape `_` and `*` in literal text (for example
   `/digest\_on`).
 

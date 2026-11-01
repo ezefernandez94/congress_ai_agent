@@ -6,10 +6,10 @@ from sqlalchemy import ARRAY, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin
+from app.models.base import Base, TimestampMixin, WorkspaceScoped
 
 
-class Company(Base, TimestampMixin):
+class Company(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "companies"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))

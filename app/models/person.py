@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,17 +13,22 @@ from app.models.base import (
     InterestLevel,
     PriorityTier,
     TimestampMixin,
+    WorkspaceScoped,
 )
 
 
-class Person(Base, TimestampMixin):
+class Person(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "people"
+    # The same LinkedIn profile can be a contact in two organizations (REQ-024).
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "linkedin_url", name="uq_people_workspace_linkedin_url"),
+    )
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str | None] = mapped_column(String, nullable=True)
     company_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=True)
-    linkedin_url: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     twitter_handle: Mapped[str | None] = mapped_column(String, nullable=True)

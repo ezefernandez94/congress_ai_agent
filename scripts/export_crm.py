@@ -18,7 +18,7 @@ async def export_csv(db):
     # People
     result = await db.execute(select(Person))
     people = list(result.scalars().all())
-    with open("export_contacts.csv", "w", newline="") as f:
+    with open("export_contacts.csv", "w", newline="") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
         writer = csv.DictWriter(f, fieldnames=[
             "id", "full_name", "role", "email", "linkedin_url",
             "contact_type", "interest_level", "priority_tier",
@@ -38,7 +38,7 @@ async def export_csv(db):
     # Interactions
     result = await db.execute(select(Interaction))
     interactions = list(result.scalars().all())
-    with open("export_interactions.csv", "w", newline="") as f:
+    with open("export_interactions.csv", "w", newline="") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
         writer = csv.DictWriter(f, fieldnames=[
             "id", "person_id", "interaction_type", "occurred_at", "processed_summary",
         ])
@@ -55,7 +55,7 @@ async def export_csv(db):
     # Tasks
     result = await db.execute(select(Task))
     tasks = list(result.scalars().all())
-    with open("export_tasks.csv", "w", newline="") as f:
+    with open("export_tasks.csv", "w", newline="") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
         writer = csv.DictWriter(f, fieldnames=[
             "id", "title", "task_type", "priority", "status", "due_date", "related_person_id",
         ])
@@ -72,7 +72,7 @@ async def export_csv(db):
     # Opportunities
     result = await db.execute(select(Opportunity))
     opportunities = list(result.scalars().all())
-    with open("export_opportunities.csv", "w", newline="") as f:
+    with open("export_opportunities.csv", "w", newline="") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
         writer = csv.DictWriter(f, fieldnames=[
             "id", "title", "opportunity_type", "stage", "person_id", "estimated_value", "notes",
         ])
@@ -86,10 +86,11 @@ async def export_csv(db):
     print(f"✅ Exported {len(opportunities)} opportunities to export_opportunities.csv")
 
 
-async def main(fmt: str):
-    from app.core.database import AsyncSessionLocal
+async def main(fmt: str, workspace: str | None):
+    from app.core.tenancy import workspace_session
 
-    async with AsyncSessionLocal() as db:
+    # Exports one workspace only: an organization's export never contains another's contacts.
+    async with workspace_session(workspace) as db:
         if fmt == "csv":
             await export_csv(db)
         elif fmt == "airtable":
@@ -105,5 +106,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--format", required=True, choices=["csv", "airtable", "notion"])
+    parser.add_argument("--workspace", help="Workspace name or id; optional when there is only one")
     args = parser.parse_args()
-    asyncio.run(main(args.format))
+
+    from app.core.tenancy import WorkspaceChoiceError
+
+    try:
+        asyncio.run(main(args.format, args.workspace))
+    except WorkspaceChoiceError as e:
+        sys.exit(str(e))

@@ -41,10 +41,10 @@ What the product must do, plus the constraints it must respect. Maintained by Cl
 | REQ-021 | Pre-conference seeding and bulk enrichment | active | Scripts |
 | REQ-022 | Post-conference CRM export | active | Scripts |
 | REQ-023 | Semantic search over contacts and interactions | planned | Search |
-| REQ-024 | Each organization's data is isolated in its own workspace | planned | Tenancy |
-| REQ-025 | Every member sees everything in their workspace | planned | Tenancy |
+| REQ-024 | Each organization's data is isolated in its own workspace | active | Tenancy |
+| REQ-025 | Every member sees everything in their workspace | active | Tenancy |
 | REQ-026 | Admins see everything, members see only their own records | planned | Tenancy |
-| REQ-027 | Every record remembers who created it | planned | Tenancy |
+| REQ-027 | Every record remembers who created it | active | Tenancy |
 | REQ-028 | Workspace admins and members | planned | Access |
 | REQ-029 | Platform admins create workspaces | planned | Access |
 | REQ-030 | Joining is by invitation only | planned | Access |
@@ -298,7 +298,7 @@ case-insensitive text matching only and no embeddings are generated, although th
 ## Tenancy
 
 ### REQ-024 — Each organization's data is isolated in its own workspace
-- Status: planned
+- Status: active
 - Source: user-request
 - Added: 2026-10-28
 - Related: ADR-013, ADR-014
@@ -309,7 +309,7 @@ sees, finds, edits, or gets in a digest, summary or export anything from another
 Telegram, the web UI, the agent or the scripts. Each user belongs to exactly one workspace.
 
 ### REQ-025 — Every member sees everything in their workspace
-- Status: planned
+- Status: active
 - Source: user-request
 - Added: 2026-10-28
 - Related: REQ-024, REQ-026
@@ -331,7 +331,7 @@ whether this is a per-workspace setting or applies to every workspace. Events st
 members.
 
 ### REQ-027 — Every record remembers who created it
-- Status: planned
+- Status: active
 - Source: claude-suggested (confirmed by Eze 2026-10-29)
 - Added: 2026-10-28
 - Related: REQ-026

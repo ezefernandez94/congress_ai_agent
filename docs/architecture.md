@@ -33,6 +33,7 @@ Why the product is built the way it is. One entry per decision (ADR). Maintained
 | ADR-015 | Usage ledger table, with quotas checked before every paid call | accepted | 2026-10-28 |
 | ADR-016 | Events are workspace-scoped conferences; records carry an optional event_id | accepted | 2026-10-28 |
 | ADR-017 | Event status computed from dates; attendance in an event_attendees table | accepted | 2026-10-29 |
+| ADR-018 | Workspace scoping lives on the database session, not in each repository | accepted | 2026-11-01 |
 
 ## Entries
 
@@ -273,6 +274,29 @@ in the system prompt, and the create tools fill `event_id` from it unless the us
 **Consequences.** No status can drift, and "finished" needs no job. The bot needs its first
 `CallbackQueryHandler`, which must call `authorize` like every other handler. The question and its reminder
 cost no paid API calls. Users who miss the question need a command and a web toggle to answer later.
+
+### ADR-018 — Workspace scoping lives on the database session, not in each repository
+- Status: accepted
+- Date: 2026-11-01
+- Related: ADR-013, ADR-014, REQ-024, REQ-025, REQ-027
+
+**Context.** ADR-013 says repositories filter by workspace. About half the reads are raw `select()`s outside
+the repositories (digest, context builder, dashboard, web dropdowns, follow-up, export script), so a filter
+written by hand in each one is easy to forget, and RLS (EZE-51) is not there yet. Rejected: a `workspace_id`
+argument on every repository and service, with every raw query rewritten (a bigger diff, and one forgotten
+`where` leaks another organization's contacts). Eze chose the session approach on 2026-11-01.
+**Decision.** Each session carries the caller's `workspace_id` and `user_id` in `session.info`, set once
+where the session is opened from a `Caller` (bot handler, web dependency, job, script). A `do_orm_execute`
+hook adds `workspace_id = <session's>` (`with_loader_criteria`) to every ORM SELECT, UPDATE and DELETE on a
+workspace-scoped model, relationship loads included. A scoped query on a session with no workspace raises
+instead of reading everything. A `before_flush` hook stamps `workspace_id` and `created_by_user_id` on new
+rows and refuses a row from another workspace. Tables without a workspace (`bot_users`, `workspaces`,
+`workspace_members`) are not filtered. This refines ADR-013; its RLS backstop is unchanged.
+**Consequences.** Repositories and services stay workspace-unaware, and a forgotten filter cannot exist.
+The filter does not cover `text()` SQL or Core statements on bare `Table` objects, so domain tables are read
+only through ORM models. EZE-51 sets `SET LOCAL app.workspace_id` from the same `session.info` value.
+Foreign-key ids that arrive from forms or the agent still need checking, because the hook filters reads,
+not the ids written into a column.
 
 ## Template
 

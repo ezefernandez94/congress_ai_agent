@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.logging import logger
-from app.core.tenancy import resolve_caller
+from app.core.tenancy import resolve_caller, scope_to_caller
 from app.models.user import BotUser
 from app.repositories.user_repo import UserRepository
 
@@ -121,6 +121,20 @@ async def require_web_user(
     request.state.caller = caller
     request.state.web_user = caller.user
     return caller.user
+
+
+async def get_scoped_db(
+    request: Request,
+    user: BotUser = Depends(require_web_user),
+    db: AsyncSession = Depends(get_db),
+) -> AsyncSession:
+    """The request's session, limited to the signed-in user's workspace (ADR-018).
+
+    Every route that reads or writes workspace data takes its session from here instead of get_db,
+    so it cannot run before require_web_user has resolved the caller. FastAPI caches get_db per
+    request, so this is the same session require_web_user used.
+    """
+    return scope_to_caller(db, request.state.caller)
 
 
 async def require_owner(user: BotUser = Depends(require_web_user)) -> BotUser:

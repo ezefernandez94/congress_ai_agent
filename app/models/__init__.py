@@ -15,6 +15,7 @@ from app.models.base import (
     TaskType,
     TimestampMixin,
     WorkspaceRole,
+    WorkspaceScoped,
 )
 from app.models.company import Company
 from app.models.conference import Conference
@@ -57,5 +58,10 @@ __all__ = [
     "Workspace",
     "WorkspaceMember",
     "WorkspaceRole",
+    "WorkspaceScoped",
     "meeting_participants",
 ]
+
+# Registers the workspace-scoping session hooks (ADR-018) wherever models are used, including sessions
+# that never import app.core.database (tests, scripts).
+import app.core.scoping  # noqa: F401

@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 import asyncpg
 import pytest
@@ -86,3 +87,63 @@ async def client():
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
+
+
+# --- workspaces (ADR-013, ADR-018) -------------------------------------------------------------
+
+
+@dataclass
+class TestWorkspace:
+    """A workspace with one admin, ready to scope a session to."""
+
+    __test__ = False  # not a test class, despite the name
+
+    id: str
+    user_id: str
+    telegram_user_id: int
+
+
+async def _make_workspace(db: AsyncSession, name: str, telegram_user_id: int) -> TestWorkspace:
+    from app.models.base import WorkspaceRole
+    from app.repositories.user_repo import UserRepository
+    from app.repositories.workspace_repo import WorkspaceRepository
+
+    user = await UserRepository(db).ensure_user(telegram_user_id, display_name=f"{name} admin")
+    workspaces = WorkspaceRepository(db)
+    workspace = await workspaces.create({"name": name})
+    await workspaces.add_member(workspace.id, user.id, WorkspaceRole.admin)
+    return TestWorkspace(id=workspace.id, user_id=user.id, telegram_user_id=telegram_user_id)
+
+
+@pytest.fixture
+async def workspace_a(db_session) -> TestWorkspace:
+    return await _make_workspace(db_session, "Workspace A", 900_001)
+
+
+@pytest.fixture
+async def workspace_b(db_session) -> TestWorkspace:
+    return await _make_workspace(db_session, "Workspace B", 900_002)
+
+
+@pytest.fixture
+def as_workspace(db_session):
+    """Switch db_session to another workspace, the way a fresh request would see the database.
+
+    Both workspaces share one transaction so each can see the other's uncommitted rows at the SQL
+    level, which is what a leak test needs. The identity map is cleared on every switch: a real
+    session only ever holds one workspace's objects.
+    """
+    from app.core.scoping import scope_session
+
+    def switch(workspace: TestWorkspace) -> AsyncSession:
+        db_session.expunge_all()
+        scope_session(db_session, workspace.id, workspace.user_id)
+        return db_session
+
+    return switch
+
+
+@pytest.fixture
+async def scoped_db(db_session, workspace_a, as_workspace) -> AsyncSession:
+    """db_session scoped to workspace_a, for tests that only need one workspace."""
+    return as_workspace(workspace_a)
