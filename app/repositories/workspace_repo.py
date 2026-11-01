@@ -28,6 +28,10 @@ class WorkspaceRepository(BaseRepository[Workspace]):
         await self.db.flush()
         return member
 
+    async def list_all(self) -> list[Workspace]:
+        result = await self.db.execute(select(Workspace).order_by(Workspace.created_at))
+        return list(result.scalars().all())
+
     async def get_or_create_default(self) -> Workspace:
         result = await self.db.execute(
             select(Workspace)

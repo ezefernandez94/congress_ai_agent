@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import BotUser
+from app.models.workspace import WorkspaceMember
 from app.repositories.base import BaseRepository
 
 
@@ -29,13 +30,22 @@ class UserRepository(BaseRepository[BotUser]):
         )
         return result.scalars().first()
 
-    async def list_digest_recipients(self) -> list[BotUser]:
+    async def digest_recipients_by_workspace(self) -> dict[str, list[BotUser]]:
+        """Active users who want the digest, grouped by their workspace.
+
+        Each workspace gets its own digest (REQ-024), so the job needs to know whose data each
+        recipient may see. Users without a membership cannot use the product and get nothing.
+        """
         result = await self.db.execute(
-            select(BotUser)
+            select(WorkspaceMember.workspace_id, BotUser)
+            .join(WorkspaceMember, WorkspaceMember.user_id == BotUser.id)
             .where(BotUser.is_active.is_(True), BotUser.receives_digest.is_(True))
             .order_by(BotUser.created_at)
         )
-        return list(result.scalars().all())
+        grouped: dict[str, list[BotUser]] = {}
+        for workspace_id, user in result.all():
+            grouped.setdefault(workspace_id, []).append(user)
+        return grouped
 
     async def ensure_user(
         self,

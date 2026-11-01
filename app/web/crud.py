@@ -10,23 +10,24 @@ in a CrudConfig and the route bodies are written once here.
 
 import csv
 import io
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Sequence
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
 from pydantic_core import PydanticUndefined
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 from starlette.datastructures import FormData, QueryParams
 
-from app.core.database import get_db
-from app.models.base import Base
+from app.models.base import Base, WorkspaceScoped
 from app.repositories.base import BaseRepository, ilike_any
-from app.web.auth import require_web_user
+from app.web.auth import get_scoped_db, require_web_user
 from app.web.query import Page, active_filters, equality_filters, parse_form, parse_page
 from app.web.rendering import redirect, render
 
@@ -162,6 +163,35 @@ def _build_where(config: CrudConfig, params: QueryParams) -> list[ColumnElement[
     return where
 
 
+def _scoped_model_for_table(table: Any) -> type[Base] | None:
+    for mapper in Base.registry.mappers:
+        if mapper.local_table is table and issubclass(mapper.class_, WorkspaceScoped):
+            return mapper.class_
+    return None
+
+
+async def _foreign_ids_outside_workspace(
+    db: AsyncSession, model: type[Base], values: dict[str, Any]
+) -> list[str]:
+    """Form fields whose id points at a record the caller's workspace cannot see.
+
+    The session filters reads, not the ids written into a column (ADR-018), so without this a
+    crafted company_id or related_person_id would link a record to another workspace's row.
+    """
+    outside = []
+    for column in model.__table__.columns:
+        value = values.get(column.key)
+        if value is None:
+            continue
+        for fk in column.foreign_keys:
+            target = _scoped_model_for_table(fk.column.table)
+            if target is None:
+                continue
+            if await db.scalar(select(target.id).where(target.id == value)) is None:
+                outside.append(column.key)
+    return outside
+
+
 def build_router(config: CrudConfig) -> APIRouter:
     router = APIRouter(
         prefix=f"/{config.slug}",
@@ -186,7 +216,7 @@ def build_router(config: CrudConfig) -> APIRouter:
         return rows, page, active_filters(params, config.filter_keys)
 
     @router.get("")
-    async def index(request: Request, db: AsyncSession = Depends(get_db)):
+    async def index(request: Request, db: AsyncSession = Depends(get_scoped_db)):
         rows, page, filters = await _list_page(request, db)
         ctx = {"rows": rows, "page": page, "filters": filters, "config": config}
         if config.form_context:
@@ -196,7 +226,7 @@ def build_router(config: CrudConfig) -> APIRouter:
 
     # Registered before /{id} so "export.csv" is never read as an id.
     @router.get("/export.csv")
-    async def export(request: Request, db: AsyncSession = Depends(get_db)):
+    async def export(request: Request, db: AsyncSession = Depends(get_scoped_db)):
         """Export the current filter selection, not just the current page."""
         where = _build_where(config, request.query_params)
         rows, _ = await config.repo(db).list_page(
@@ -223,14 +253,14 @@ def build_router(config: CrudConfig) -> APIRouter:
         )
 
     @router.get("/new")
-    async def new(request: Request, db: AsyncSession = Depends(get_db)):
+    async def new(request: Request, db: AsyncSession = Depends(get_scoped_db)):
         ctx: dict[str, Any] = {"obj": None, "values": _blank_values(config), "config": config}
         if config.form_context:
             ctx.update(await config.form_context(db))
         return render(request, f"{tpl}/form.html", ctx)
 
     @router.post("")
-    async def create(request: Request, db: AsyncSession = Depends(get_db)):
+    async def create(request: Request, db: AsyncSession = Depends(get_scoped_db)):
         form = await request.form()
         payload = _read_form(config, form)
 
@@ -247,10 +277,21 @@ def build_router(config: CrudConfig) -> APIRouter:
                 ctx.update(await config.form_context(db))
             return render(request, f"{tpl}/form.html", ctx, status_code=422)
 
+        values = validated.model_dump(exclude=set(config.dump_exclude) or None)
+        outside = await _foreign_ids_outside_workspace(db, config.model, values)
+        if outside:
+            ctx = {
+                "obj": None,
+                "values": payload,
+                "error": f"Not found: {', '.join(outside)}",
+                "config": config,
+            }
+            if config.form_context:
+                ctx.update(await config.form_context(db))
+            return render(request, f"{tpl}/form.html", ctx, status_code=422)
+
         repo = config.repo(db)
-        obj = await repo.create(
-            validated.model_dump(exclude=set(config.dump_exclude) or None)
-        )
+        obj = await repo.create(values)
         if config.on_save:
             await config.on_save(db, obj, form)
 
@@ -260,7 +301,7 @@ def build_router(config: CrudConfig) -> APIRouter:
     if config.has_detail:
 
         @router.get("/{obj_id}")
-        async def detail(obj_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+        async def detail(obj_id: str, request: Request, db: AsyncSession = Depends(get_scoped_db)):
             obj = await config.repo(db).get_with(obj_id, *config.detail_options)
             if obj is None:
                 return redirect(f"/{config.slug}?error={quote(config.singular + ' not found')}")
@@ -271,7 +312,7 @@ def build_router(config: CrudConfig) -> APIRouter:
             return render(request, f"{tpl}/detail.html", ctx)
 
     @router.get("/{obj_id}/edit")
-    async def edit(obj_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    async def edit(obj_id: str, request: Request, db: AsyncSession = Depends(get_scoped_db)):
         obj = await config.repo(db).get_with(obj_id, *config.detail_options)
         if obj is None:
             return redirect(f"/{config.slug}?error={quote(config.singular + ' not found')}")
@@ -286,7 +327,7 @@ def build_router(config: CrudConfig) -> APIRouter:
         return render(request, f"{tpl}/form.html", ctx)
 
     @router.post("/{obj_id}")
-    async def update(obj_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    async def update(obj_id: str, request: Request, db: AsyncSession = Depends(get_scoped_db)):
         repo = config.repo(db)
         obj = await repo.get_with(obj_id, *config.detail_options)
         if obj is None:
@@ -311,12 +352,22 @@ def build_router(config: CrudConfig) -> APIRouter:
         # exclude_unset keeps this to the fields the form actually submitted,
         # while set_fields (unlike repo.update) still writes the ones the user
         # deliberately cleared.
-        await repo.set_fields(
-            obj,
-            validated.model_dump(
-                exclude_unset=True, exclude=set(config.dump_exclude) or None
-            ),
+        values = validated.model_dump(
+            exclude_unset=True, exclude=set(config.dump_exclude) or None
         )
+        outside = await _foreign_ids_outside_workspace(db, config.model, values)
+        if outside:
+            ctx = {
+                "obj": obj,
+                "values": payload,
+                "error": f"Not found: {', '.join(outside)}",
+                "config": config,
+            }
+            if config.form_context:
+                ctx.update(await config.form_context(db))
+            return render(request, f"{tpl}/form.html", ctx, status_code=422)
+
+        await repo.set_fields(obj, values)
         if config.on_save:
             await config.on_save(db, obj, form)
 
@@ -324,7 +375,7 @@ def build_router(config: CrudConfig) -> APIRouter:
         return redirect(f"{target}?ok={quote('Saved')}")
 
     @router.post("/{obj_id}/delete")
-    async def destroy(obj_id: str, db: AsyncSession = Depends(get_db)):
+    async def destroy(obj_id: str, db: AsyncSession = Depends(get_scoped_db)):
         try:
             deleted = await config.repo(db).delete(obj_id)
         except IntegrityError:

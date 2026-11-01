@@ -5,10 +5,10 @@ from sqlalchemy import ARRAY, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, OpportunityStage, OpportunityType, TimestampMixin
+from app.models.base import Base, OpportunityStage, OpportunityType, TimestampMixin, WorkspaceScoped
 
 
-class Opportunity(Base, TimestampMixin):
+class Opportunity(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "opportunities"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))

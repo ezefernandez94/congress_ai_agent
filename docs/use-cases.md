@@ -27,17 +27,18 @@ up with at least one test named `test_ucNNN_<scenario>`. Maintained by Claude Co
 | UC-007 | Get briefed before a meeting | unverified |
 | UC-008 | Enrich a contact from LinkedIn | unverified |
 | UC-009 | Draft a follow-up email | unverified |
-| UC-010 | Receive the morning digest | unverified |
+| UC-010 | Receive the morning digest | implemented |
 | UC-011 | Turn my digest on or off | unverified |
 | UC-012 | Add or remove a user | unverified |
 | UC-013 | Find my Telegram ID | unverified |
 | UC-014 | Sign in to the web UI | unverified |
-| UC-015 | Manage and export records in the web UI | unverified |
-| UC-016 | Chat with the agent from the web | unverified |
+| UC-015 | Manage and export records in the web UI | implemented |
+| UC-016 | Chat with the agent from the web | implemented |
 | UC-017 | See my recent contacts | unverified |
 | UC-018 | Prepare before the conference | unverified |
 | UC-019 | Export everything after the conference | unverified |
 | UC-020 | A stranger messages the bot | unverified |
+| UC-021 | My workspace's records stay inside my workspace | implemented |
 
 ## Capture
 
@@ -158,12 +159,14 @@ Expected: nothing is sent; no external API other than Anthropic is called.
 ## Digest
 
 ### UC-010 — Receive the morning digest
-- Status: unverified
+- Status: implemented
 - Actor: User
-- Requirements: REQ-011
-- Tests: none yet
+- Requirements: REQ-011, REQ-024
+- Tests: tests/test_jobs/test_daily_digest.py::test_uc010_each_user_gets_own_workspace_digest,
+  tests/test_jobs/test_daily_digest.py::test_uc010_user_without_workspace_gets_no_digest
 
-1. At the configured time, every active user with the digest on gets the digest in Telegram.
+1. At the configured time, every active user with the digest on gets the digest in Telegram, built from
+   their own workspace's records only (one digest per workspace).
 2. Any user can get it on demand with `/digest` or by asking the agent.
 
 Alternate: no recipients → nothing is sent. A failed send to one user → the others still get it.
@@ -218,6 +221,24 @@ with a hint to remove them from the env first. Unknown ID → "No such user."
 
 Alternate: the database is unreachable → the message is also ignored (fail closed).
 
+### UC-021 — My workspace's records stay inside my workspace
+- Status: implemented
+- Actor: User
+- Requirements: REQ-024, REQ-025, REQ-027
+- Tests: tests/test_core/test_workspace_scoping.py, tests/test_agent/test_tools_isolation.py,
+  tests/test_web/test_entities_isolation.py, tests/test_web/test_chat_isolation.py,
+  tests/test_bot/test_handlers_isolation.py (all `test_uc021_*` / `test_uc001_*`)
+
+1. A user works through Telegram, the web UI or the agent.
+2. Everything they see, search, count, export or get in a digest comes from their workspace only, and
+   every member of the workspace sees all of it (REQ-025).
+3. Every record they create belongs to their workspace and remembers them as its creator.
+
+Alternate: a record id, name or LinkedIn URL that exists only in another workspace behaves as if it did
+not exist ("No contact found matching …", "Task not found", "<Entity> not found").
+Alternate: the same LinkedIn profile can be a contact in two workspaces.
+Expected: a query on workspace data from a session with no workspace raises instead of returning rows.
+
 ## Web
 
 ### UC-014 — Sign in to the web UI
@@ -234,23 +255,28 @@ logs them out. In development the user is signed in as the first owner; with no 
 explains how to seed one. A non-owner opening the users page is redirected with an error.
 
 ### UC-015 — Manage and export records in the web UI
-- Status: unverified
+- Status: implemented
 - Actor: User
-- Requirements: REQ-017
-- Tests: none yet
+- Requirements: REQ-017, REQ-024
+- Tests: tests/test_web/test_entities_isolation.py (test_uc021_* cover every entity's list, export,
+  detail, edit, update and delete, run as a signed-in user)
 
 1. The user opens the dashboard, then any entity list (people, companies, tasks, opportunities, interactions,
-   meetings, notes, conferences).
+   meetings, notes, conferences). Lists, counts and exports hold only their workspace's records.
 2. They filter, page, create, view, edit or delete records, or download the list as CSV.
 
-Alternate: activating a conference makes it the one the agent uses.
+Alternate: activating a conference makes it the one the agent uses, in their workspace only.
+Alternate: a form whose company, person, meeting or conference id belongs to another workspace is refused
+with "Not found: <field>" (HTTP 422); meeting participants from another workspace are dropped.
+Alternate: a record id from another workspace → "<Entity> not found".
 Expected: the CSV has every column except embeddings.
 
 ### UC-016 — Chat with the agent from the web
-- Status: unverified
+- Status: implemented
 - Actor: User
-- Requirements: REQ-018
-- Tests: none yet
+- Requirements: REQ-018, REQ-024
+- Tests: tests/test_web/test_chat_isolation.py::test_uc021_chat_turn_runs_and_saves_in_own_workspace,
+  tests/test_web/test_chat_isolation.py::test_uc021_chat_history_hides_other_workspace
 
 1. The user opens `/chat`; it shows the last 20 messages, including those from Telegram.
 2. They send a message; the agent replies and the log refreshes.
@@ -275,23 +301,31 @@ Alternate: none → "No contacts added in the last 3 days."
 ### UC-018 — Prepare before the conference
 - Status: unverified
 - Actor: Owner
-- Requirements: REQ-021
-- Tests: none yet
+- Requirements: REQ-021, REQ-024
+- Tests: none yet (the shared `--workspace` resolution is covered under UC-019)
 
-1. The owner runs `scripts/seed_conference.py` and answers the prompts; the conference is saved as active.
-2. They run `scripts/batch_enrich.py --input attendees.csv`; each row is saved and enriched, one per second.
+1. The owner runs `scripts/seed_conference.py [--workspace <name or id>]` and answers the prompts; the
+   conference is saved as that workspace's active one.
+2. They run `scripts/batch_enrich.py --input attendees.csv [--workspace <name or id>]`; each row is saved in
+   that workspace and enriched, one per second.
 3. A summary is printed and written to `enriched_contacts_summary.txt`.
+
+Alternate: `--workspace` left out with more than one workspace, or naming none → the script exits with the
+list of workspaces, before reading the CSV or calling any paid API.
 
 ### UC-019 — Export everything after the conference
 - Status: unverified
 - Actor: Owner
-- Requirements: REQ-022
-- Tests: none yet
+- Requirements: REQ-022, REQ-024
+- Tests: tests/test_scripts/test_workspace_arg.py (workspace choice and scoping only; the CSV export itself
+  has no test yet)
 
-1. The owner runs `scripts/export_crm.py --format csv`.
-2. Contacts, interactions, tasks and opportunities are written to one CSV file each.
+1. The owner runs `scripts/export_crm.py --format csv [--workspace <name or id>]`.
+2. That workspace's contacts, interactions, tasks and opportunities are written to one CSV file each.
 
 Alternate: `--format airtable` or `notion` prints "not yet implemented".
+Alternate: `--workspace` is optional with exactly one workspace; otherwise, or when it names no workspace,
+the script exits with "Pass --workspace <name or id>. Workspaces: …" or "No workspace '<x>'. Workspaces: …".
 
 ## Template
 

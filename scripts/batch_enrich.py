@@ -2,7 +2,7 @@
 import asyncio
 import csv
 import sys
-import time
+from datetime import UTC
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,25 +43,30 @@ async def enrich_row(row: dict, db) -> dict:
     if person.linkedin_url and not person.enriched_at:
         try:
             data = await enrichment_service.enrich_person_proxycurl(person.linkedin_url)
-            from datetime import datetime, timezone
+            from datetime import datetime
             await person_repo.update(person, {
                 "linkedin_summary": data.get("summary", ""),
                 "bio_snapshot": data.get("headline", ""),
-                "enriched_at": datetime.now(timezone.utc),
+                "enriched_at": datetime.now(UTC),
                 "enrichment_source": "proxycurl",
             })
             return {"name": person.full_name, "status": "enriched"}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - one bad row is reported, the rest still run
             return {"name": person.full_name, "status": f"error: {e}"}
 
     return {"name": person.full_name, "status": "skipped (no LinkedIn or already enriched)"}
 
 
-async def main(input_file: str):
-    from app.core.database import AsyncSessionLocal
+async def main(input_file: str, workspace: str | None):
+    from app.core.database import session_scope
+    from app.core.tenancy import find_workspace, workspace_session
+
+    # Fail on a bad --workspace before reading the CSV or calling any paid API.
+    async with session_scope() as db:
+        workspace = (await find_workspace(db, workspace)).id
 
     rows = []
-    with open(input_file, newline="") as f:
+    with open(input_file, newline="") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
         reader = csv.DictReader(f)
         rows = list(reader)
 
@@ -69,22 +74,20 @@ async def main(input_file: str):
     results = []
 
     for i, row in enumerate(rows):
-        async with AsyncSessionLocal() as db:
+        async with workspace_session(workspace) as db:
             result = await enrich_row(row, db)
-            await db.commit()
 
         results.append(result)
         print(f"[{i+1}/{len(rows)}] {result['name']}: {result['status']}")
-        time.sleep(1)  # rate limit: 1 req/sec
+        await asyncio.sleep(1)  # rate limit: 1 req/sec
 
     # Summary
     enriched = sum(1 for r in results if r["status"] == "enriched")
     errors = sum(1 for r in results if r["status"].startswith("error"))
     print(f"\n✅ Done. Enriched: {enriched}, Skipped: {len(results) - enriched - errors}, Errors: {errors}")
 
-    with open("enriched_contacts_summary.txt", "w") as f:
-        for r in results:
-            f.write(f"{r['name']}: {r['status']}\n")
+    with open("enriched_contacts_summary.txt", "w") as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
+        f.writelines(f"{r['name']}: {r['status']}\n" for r in results)
     print("Summary written to enriched_contacts_summary.txt")
 
 
@@ -93,5 +96,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="CSV file with full_name, company, linkedin_url, contact_type")
+    parser.add_argument("--workspace", help="Workspace name or id; optional when there is only one")
     args = parser.parse_args()
-    asyncio.run(main(args.input))
+
+    from app.core.tenancy import WorkspaceChoiceError
+
+    try:
+        asyncio.run(main(args.input, args.workspace))
+    except WorkspaceChoiceError as e:
+        sys.exit(str(e))

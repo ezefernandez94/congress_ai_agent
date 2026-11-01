@@ -1,15 +1,15 @@
-"""Usage: uv run python scripts/seed_conference.py"""
+"""Usage: uv run python scripts/seed_conference.py [--workspace <name or id>]"""
 import asyncio
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.core.database import AsyncSessionLocal
+from app.core.tenancy import WorkspaceChoiceError, workspace_session
 from app.models.conference import Conference
 
 
-async def main():
+async def main(workspace: str | None):
     print("=== Conference Seed ===\n")
 
     name = input("Conference name: ").strip()
@@ -31,11 +31,11 @@ async def main():
 
     from datetime import date
 
-    async with AsyncSessionLocal() as db:
-        # Deactivate any existing active conference
-        from sqlalchemy import select, update
+    async with workspace_session(workspace) as db:
+        # Deactivate the workspace's active conference (the session limits this to the workspace)
+        from sqlalchemy import update
         await db.execute(
-            update(Conference).where(Conference.is_active == True).values(is_active=False)  # noqa: E712
+            update(Conference).where(Conference.is_active == True).values(is_active=False)
         )
 
         conference = Conference(
@@ -48,11 +48,18 @@ async def main():
             is_active=True,
         )
         db.add(conference)
-        await db.commit()
-        await db.refresh(conference)
+        await db.flush()
 
     print(f"\n✅ Conference '{name}' created with ID: {conference.id}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--workspace", help="Workspace name or id; optional when there is only one")
+    args = parser.parse_args()
+    try:
+        asyncio.run(main(args.workspace))
+    except WorkspaceChoiceError as e:
+        sys.exit(str(e))

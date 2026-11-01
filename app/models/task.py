@@ -5,10 +5,17 @@ from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TaskPriority, TaskStatus, TaskType, TimestampMixin
+from app.models.base import (
+    Base,
+    TaskPriority,
+    TaskStatus,
+    TaskType,
+    TimestampMixin,
+    WorkspaceScoped,
+)
 
 
-class Task(Base, TimestampMixin):
+class Task(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "tasks"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))

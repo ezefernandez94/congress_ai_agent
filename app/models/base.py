@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 
 class Base(DeclarativeBase):
@@ -20,6 +21,35 @@ class TimestampMixin:
 
     def generate_uuid() -> str:
         return str(uuid.uuid4())
+
+
+class WorkspaceScoped:
+    """A record that belongs to exactly one workspace (ADR-013) and remembers its creator (REQ-027).
+
+    Every model with this mixin is filtered to the session's workspace and stamped on insert by the
+    hooks in app/core/tenancy.py (ADR-018), so code above the models never filters by hand.
+    """
+
+    @declared_attr
+    def workspace_id(cls) -> Mapped[str]:
+        # RESTRICT, not CASCADE: deleting an organization's data is an explicit operation (REQ-036),
+        # never the side effect of one stray DELETE on workspaces.
+        return mapped_column(
+            UUID(as_uuid=False),
+            ForeignKey("workspaces.id", ondelete="RESTRICT"),
+            nullable=False,
+            index=True,
+        )
+
+    @declared_attr
+    def created_by_user_id(cls) -> Mapped[str | None]:
+        # Nullable: rows from before multi-workspace have no known creator, and removing a user
+        # must not delete what they captured for their organization.
+        return mapped_column(
+            UUID(as_uuid=False),
+            ForeignKey("bot_users.id", ondelete="SET NULL"),
+            nullable=True,
+        )
 
 class ContactType(str, Enum):
     investor = "investor"

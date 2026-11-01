@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from app.bot.auth import authorize
 from app.bot.handlers import handle_photo_message, handle_text_message, handle_voice_message
 from app.core.database import AsyncSessionLocal, session_scope
+from app.core.tenancy import caller_session
 from app.repositories.user_repo import UserRepository
 from app.repositories.workspace_repo import WorkspaceRepository
 
@@ -29,23 +30,25 @@ async def start_command(update: Update, context) -> None:
 
 
 async def digest_command(update: Update, context) -> None:
-    if await authorize(update) is None:
+    caller = await authorize(update)
+    if caller is None:
         return
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     from app.services.digest import digest_service
 
-    async with AsyncSessionLocal() as db:
+    async with caller_session(caller) as db:
         digest = await digest_service.generate_daily_digest(db)
     await update.message.reply_text(digest, parse_mode="Markdown")
 
 
 async def tasks_command(update: Update, context) -> None:
-    if await authorize(update) is None:
+    caller = await authorize(update)
+    if caller is None:
         return
     from app.bot.formatter import format_task_list
     from app.repositories.task_repo import TaskRepository
 
-    async with AsyncSessionLocal() as db:
+    async with caller_session(caller) as db:
         task_repo = TaskRepository(db)
         tasks = await task_repo.get_pending(limit=10)
         task_dicts = [
@@ -57,11 +60,12 @@ async def tasks_command(update: Update, context) -> None:
 
 
 async def contacts_command(update: Update, context) -> None:
-    if await authorize(update) is None:
+    caller = await authorize(update)
+    if caller is None:
         return
     from app.repositories.person_repo import PersonRepository
 
-    async with AsyncSessionLocal() as db:
+    async with caller_session(caller) as db:
         person_repo = PersonRepository(db)
         contacts = await person_repo.get_recent(hours=72, limit=10)
 

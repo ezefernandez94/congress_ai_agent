@@ -5,7 +5,7 @@ from sqlalchemy import ARRAY, Boolean, Column, DateTime, ForeignKey, Integer, St
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, MeetingType, Sentiment, TimestampMixin
+from app.models.base import Base, MeetingType, Sentiment, TimestampMixin, WorkspaceScoped
 
 meeting_participants = Table(
     "meeting_participants",
@@ -15,7 +15,7 @@ meeting_participants = Table(
 )
 
 
-class Meeting(Base, TimestampMixin):
+class Meeting(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "meetings"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))

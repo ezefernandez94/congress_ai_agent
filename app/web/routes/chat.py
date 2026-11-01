@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.orchestrator import ConferenceAgent
-from app.core.database import get_db
 from app.core.logging import logger
 from app.models.user import BotUser
 from app.services.conversation import load_history, save_message
-from app.web.auth import require_web_user
+from app.web.auth import get_scoped_db, require_web_user
 from app.web.rendering import render
 
 router = APIRouter(prefix="/chat", tags=["web-chat"])
@@ -19,7 +18,7 @@ HISTORY_LIMIT = 20
 @router.get("")
 async def chat_page(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_scoped_db),
     user: BotUser = Depends(require_web_user),
 ):
     history = await load_history(str(user.telegram_user_id), limit=HISTORY_LIMIT, db=db)
@@ -29,7 +28,7 @@ async def chat_page(
 @router.post("")
 async def send(
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_scoped_db),
     user: BotUser = Depends(require_web_user),
 ):
     """Run one agent turn and swap the whole log back in via HTMX."""
@@ -45,7 +44,7 @@ async def send(
 
     try:
         reply = await ConferenceAgent(db).process_message(message, history)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any agent failure becomes a retry message in the chat
         logger.error("web_chat_failed", user_id=user_key, error=str(e))
         reply = "Something went wrong talking to the agent. Please try again."
     else:

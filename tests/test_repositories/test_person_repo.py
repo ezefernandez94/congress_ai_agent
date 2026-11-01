@@ -1,8 +1,8 @@
 from app.repositories.person_repo import PersonRepository
 
 
-async def test_uc001_contact_saved_and_found(db_session):
-    repo = PersonRepository(db_session)
+async def test_uc001_contact_saved_and_found(scoped_db):
+    repo = PersonRepository(scoped_db)
 
     saved = await repo.create({"full_name": "Ada Lovelace", "role": "CTO"})
     found = await repo.search_by_name("lovelace")

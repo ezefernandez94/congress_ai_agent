@@ -45,6 +45,14 @@ the login page. If the database can't be reached, access is denied too: the bot 
 
 The only exception is `/whoami`, which anyone can use (see [Getting access](#getting-access-as-a-new-person)).
 
+**Your workspace is everything you can see.** Each user belongs to one workspace (one organization).
+Contacts, companies, conversations, tasks, meetings, notes, opportunities, conferences and your chat
+history all belong to it, whether you create them in Telegram, the web UI or by talking to the bot.
+Every member sees and can edit everything in the workspace, and each record remembers who created it.
+Nothing from another workspace ever appears: not in searches, lists, counts, exports, the digest or the
+bot's answers. If you name a contact that exists only in another workspace, the bot answers as if it
+didn't exist ("No contact found matching …"). The same person can be a contact in two workspaces.
+
 ## First setup: the owners
 
 Done by whoever deploys the bot, not from Telegram.
@@ -192,7 +200,7 @@ stores it and updates the contact's last interaction date.
 ## The morning digest
 
 - **Automatic:** every day at the configured time (`DIGEST_HOUR`:`DIGEST_MINUTE` in the `TIMEZONE` setting),
-  every active user with the digest on gets it in Telegram: pending tasks, today's meetings, priority
+  every active user with the digest on gets it in Telegram, built from their own workspace: pending tasks, today's meetings, priority
   contacts, overdue follow-ups and one recommended action. If sending to one person fails, the others
   still get it.
 - **On demand:** send `/digest`, or ask the bot.
@@ -203,7 +211,8 @@ stores it and updates the contact's last interaction date.
 ## Chatting from the web
 
 Open **Chat**. It shows your last 20 messages, including the ones from Telegram: it's the same
-conversation. Send a message and the bot answers as it would in Telegram. An empty message is ignored.
+conversation. Send a message and the bot answers as it would in Telegram, using your workspace's records.
+An empty message is ignored.
 
 ## Managing records on the web
 
@@ -212,16 +221,33 @@ conversation. Send a message and the bot answers as it would in Telegram. An emp
 2. Filter and page through it; create, view, edit or delete records.
 3. Download any list as CSV (every column except the search embeddings).
 
-**Conferences:** activating a conference makes it the one the bot uses in its answers and the digest.
+Lists, the dashboard and exports show only your workspace's records. Opening a link to a record from
+another workspace shows "<Person, Task, …> not found". A form that points at another workspace's company,
+person, meeting or conference is refused with "Not found: <field>", and meeting participants from another
+workspace are left out.
+
+**Conferences:** activating a conference makes it the one the bot uses in its answers and the digest, for
+your workspace only.
 
 ## Scripts
 
-Run by the person operating the deployment.
+Run by the person operating the deployment. Each script works on one workspace, chosen with
+`--workspace <name or id>`. With only one workspace you can leave it out. Otherwise, or if the name or id
+matches nothing, the script stops before doing anything and lists the workspaces:
+
+| Situation | Reply |
+|---|---|
+| Several workspaces, no `--workspace` | `Pass --workspace <name or id>. Workspaces: Acme (…), Globex (…)` |
+| No workspace with that name or id | `No workspace 'X'. Workspaces: …` |
+| Two workspaces share that name | `Several workspaces are named 'X'; pass the id: …` |
+| No workspaces at all | `There are no workspaces yet.` |
+
+Records a script creates have no creator, because a script runs as the operator, not as a bot user.
 
 - **Before the conference:** `scripts/seed_conference.py` asks for the conference's name, dates, location
-  and goals and saves it as active. `scripts/batch_enrich.py --input attendees.csv` saves and enriches each
+  and goals and saves it as the workspace's active conference. `scripts/batch_enrich.py --input attendees.csv` saves and enriches each
   row (one per second) and writes a summary to `enriched_contacts_summary.txt`.
-- **After the conference:** `scripts/export_crm.py --format csv` writes contacts, interactions, tasks and
+- **After the conference:** `scripts/export_crm.py --format csv` writes the workspace's contacts, interactions, tasks and
   opportunities to one CSV each. `--format airtable` or `notion` prints "not yet implemented".
 
 ## Command reference

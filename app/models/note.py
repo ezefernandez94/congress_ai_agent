@@ -5,10 +5,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, NoteSource, TimestampMixin
+from app.models.base import Base, NoteSource, TimestampMixin, WorkspaceScoped
 
 
-class Note(Base, TimestampMixin):
+class Note(Base, TimestampMixin, WorkspaceScoped):
     __tablename__ = "notes"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
